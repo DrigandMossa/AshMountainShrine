@@ -206,7 +206,7 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
     <h1>Ash Mountain Shrine</h1>
     <div class="sub">The village cast you out for seeing spirits. Up here, the old shrine sees you back. She was their offering once. Now she wants her children back.</div>
     <ul>
-      <li>You see through your own eyes. Walk with <b>WASD</b>, jump with <b>Space</b>, look with the mouse (click to grab it, Esc to let go) or turn with the arrow keys. On a phone, drag the left side to walk, the right side to look, and tap Jump to hop.</li>
+      <li>You see through your own eyes. Walk with <b>WASD</b>, hold <b>Shift</b> to run, jump with <b>Space</b>, look with the mouse (click to grab it, Esc to let go) or turn with the arrow keys. On a phone, drag the left side to walk (push all the way to run), the right side to look, and tap Jump to hop.</li>
       <li>Look at something and click or press <b>E</b> to chop, pick berries, cook or build. Tap far things to walk to them.</li>
       <li>Sell wood at the peddler's stump for coins. Cook food into treats at the campfire.</li>
       <li>Offer coins and treats at the shrine. Enough of both wakes a wispling.</li>
@@ -1269,8 +1269,9 @@ addEventListener('keydown', e => {
   if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { keys.add(k); e.preventDefault(); }
   if ((k === 'e' || k === 'f') && !e.repeat) { act(); e.preventDefault(); }
   if (k === ' ') { jump(); e.preventDefault(); }
+  if (k === 'shift') keys.add('shift');
 });
-addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); if (k === 'shift') keys.delete('shift'); });
 addEventListener('blur', () => keys.clear());
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 const itPos = it => it.pos ? it.pos : V(it.x, 0, it.z);
@@ -1538,7 +1539,7 @@ function update(dt) {
   shake = Math.max(0, shake - dt);
   const quake = shake * 0.5 + (wrath > 75 && playing ? (wrath - 75) / 25 * 0.12 : 0) + (state === 'erupting' ? 0.35 : 0);
   camShakeV.set((R() - 0.5) * quake, (R() - 0.5) * quake, (R() - 0.5) * quake);
-  const wantFov = fp ? (innerWidth < innerHeight ? 80 : 72) : (innerWidth < innerHeight ? 55 : 45);
+  const wantFov = fp ? (innerWidth < innerHeight ? 80 : 72) + (running ? 7 : 0) : (innerWidth < innerHeight ? 55 : 45);
   if (Math.abs(camera.fov - wantFov) > 0.05) { camera.fov = lerp(camera.fov, wantFov, 0.15); camera.updateProjectionMatrix(); }
   if (fp) {
     const bobY = moving ? Math.sin(time * 10) * 0.045 : Math.sin(time * 1.6) * 0.01;
@@ -1559,6 +1560,7 @@ function update(dt) {
   if (ui.whisperT > 0) { ui.whisperT -= dt; if (ui.whisperT <= 0) $('whisper').classList.remove('on'); }
   hudT -= dt; if (hudT <= 0) { hudT = 0.2; refreshHUD(); updatePrompt(); }
 }
+let running = false;
 function updatePlayer(dt) {
   let fx = 0, fz = 0, turn = 0;
   if (keys.has('w') || keys.has('arrowup')) fz += 1; if (keys.has('s') || keys.has('arrowdown')) fz -= 1;
@@ -1566,7 +1568,10 @@ function updatePlayer(dt) {
   if (keys.has('arrowleft')) turn += 1; if (keys.has('arrowright')) turn -= 1;
   yaw += turn * 2.2 * dt;
   if (stick.active) { fx += stick.dx; fz -= stick.dy; }
-  moving = false; const speed = 5.2;
+  moving = false;
+  // hold Shift to run (on phones, push the stick all the way)
+  running = (keys.has('shift') || (stick.active && Math.hypot(stick.dx, stick.dy) > 0.92)) && Math.hypot(fx, fz) > 0.15;
+  const speed = running ? 9.4 : 5.2;
   const f = fwd(), rx = Math.cos(yaw), rz = -Math.sin(yaw), mag = Math.hypot(fx, fz);
   if (mag > 0.15) { const l = Math.max(1, mag); P.pos.x += (f.x * fz + rx * fx) / l * speed * dt; P.pos.z += (f.z * fz + rz * fx) / l * speed * dt; moving = true; P.target = null; P.pendingIt = null; }
   else if (P.target) {
