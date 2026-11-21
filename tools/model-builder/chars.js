@@ -30,3 +30,15 @@ export const CHARS = [
 export const LADY = { id: 'lady', lady: true, name: 'The Shrine Lady', seed: 5, lookOffset: [0, 0.09, 0.08],
   colors: { skin: '#f4e8ea', hair: '#1e1a26', mask: '#fbf9f6', maskRed: '#d4383c', maskInk: '#2b1c28', top: '#f8f7fa', collar: '#ffffff', red: '#c9343b', hakama: '#b8272f', gold: '#e8c46a', tabi: '#fbfbfd', zori: '#c9a77a' },
   shades: { skin: '#d9cad6', mask: '#d8d4de', top: '#d2d0de', collar: '#c9c7d6', tabi: '#d6d6e2' } };
+
+const PC = { skin: '#f7e4dc', nose: '#e9c2b8', cheek: '#f6b3b5', strap: '#c9343b', tabi: '#fbfbfd', zori: '#c9a77a',
+  e1_white: '#ffffff', e1_dark: '#2a1f2e', e1_shine: '#ffffff', e2_white: '#ffffff', e2_dark: '#2a1f2e', e2_shine: '#ffffff', e3_white: '#ffffff', e3_dark: '#2a1f2e', e3_shine: '#ffffff',
+  m1_mouth: '#8a3a46', m2_mouth: '#6a2434', m2_tongue: '#f08a96', m3_mouth: '#8a3a46', h2_tie: '#d9483b',
+  o1_top: '#f8f7fa', o1_collar: '#ffffff', o1_bottom: '#3a5aa8',
+  o2_robe: '#e9eef8', o2_trim: '#3a5aa8', o2_obi: '#d9483b',
+  o3_shirt: '#f4ecdc', o3_sash: '#c9343b', o3_jacket: '#4a5a7a', o3_trim: '#2a2a3a', o3_tie: '#3b2a2a', o3_pants: '#5a4a40', o3_wrap: '#e8e0d0' };
+const PS = { skin: '#e6c9c4', tabi: '#d6d6e2', o1_top: '#d2d0de', o1_collar: '#c9c7d6', e1_white: '#e8e8f0', e2_white: '#e8e8f0', e3_white: '#e8e8f0' };
+export const PLAYERS = [
+  { id: 'player-female', player: true, sex: 'f', name: 'Player (female)', seed: 13, lookOffset: [0, 0.06, 0.09], colors: Object.assign({}, PC, { e1_iris: '#b8743a', e2_iris: '#b8743a', e3_iris: '#b8743a', h1_hair: '#4a3040', h2_hair: '#4a3040', h3_hair: '#4a3040' }), shades: PS },
+  { id: 'player-male', player: true, sex: 'm', name: 'Player (male)', seed: 17, lookOffset: [0, 0.06, 0.09], colors: Object.assign({}, PC, { e1_iris: '#4f6f9a', e2_iris: '#4f6f9a', e3_iris: '#4f6f9a', h1_hair: '#2e2a3a', h2_hair: '#2e2a3a', h3_hair: '#2e2a3a' }), shades: PS },
+];

@@ -483,7 +483,7 @@ function shade(hex, m) {
   return s;
 }
 export async function exportVRM(C) {
-  const { root, BL } = C.lady ? buildLady(C) : buildCharacter(C);
+  const { root, BL } = C.player ? buildPlayer(C) : C.lady ? buildLady(C) : buildCharacter(C);
   const scene = new THREE.Scene(); scene.add(root);
   const glb = await new GLTFExporter().parseAsync(scene, { binary: true });
   const dv = new DataView(glb), jsonLen = dv.getUint32(12, true);
@@ -699,5 +699,178 @@ function buildLady(C) {
   }
   // height marker for the game's sizing
   { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 1.7, -0.02, 0, 1.7, -0.02, 0, 1.7, -0.02], 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3)); P(g, 'hair', 'head'); }
+  return { root: assemble(C, parts, LBONES, v => ladyW(v), skirtW), BL: LBONES };
+}
+
+// ================================================================ the player: same body style as the shrine lady, two builds (f / m)
+// Every option the character creator offers is its own mesh, named by material prefix, so the game can show one of each:
+//   e1_ e2_ e3_  eyes (round, sharp, gentle)      m1_ m2_ m3_  mouths (smile, open, cat)
+//   h1_ h2_ h3_  hair (f: long, ponytail, bob · m: short, tied, shaggy)
+//   o1_ o2_ o3_  clothes (shrine kosode + hakama, yukata, traveller's haori + trousers)
+function buildPlayer(C) {
+  seed = C.seed || 9;
+  const male = C.sex === 'm', parts = [];
+  const P = (g, m, w = 'auto') => { if (Array.isArray(g)) g.forEach(x => parts.push({ g: x.g, m: x.m, w: m || 'auto' })); else parts.push({ g, m, w }); };
+  const H = V(0, 1.515, 0), HRr = male ? V(0.087, 0.106, 0.097) : V(0.086, 0.106, 0.096), E = { c: H, r: HRr };
+  P(ellipsoid([H.x, H.y, H.z], [HRr.x, HRr.y, HRr.z], 32, 24), 'skin', 'head');
+  P(tube(V(0, 1.3, -0.005), V(0, 1.46, -0.01), male ? 0.038 : 0.034, male ? 0.035 : 0.032, 16), 'skin');
+  for (const s of [-1, 1]) {
+    const g = ellipsoid([0, 0, 0], [0.045, 0.022, 0.035], 16, 12); g.translate(s * 0.665, 1.295, 0.004); P(g, 'skin');
+    P(tube(V(s * 0.62, 1.297, 0.002), V(s * 0.70, 1.297, 0.012), 0.009, 0.007, 8), 'skin');
+    P(ellipsoid([s * 0.085, 1.5, -0.006], [0.012, 0.022, 0.014], 12, 8), 'skin', 'head'); // ears
+  }
+  // ---- face: nose, cheeks, then each eye and mouth option
+  P(blobOn(E, 0, 1.474, 0.0028, 0.002, 0, 0.0008), 'nose', 'head');
+  if (!male) for (const s of [-1, 1]) P(blobOn(E, s * 0.05, 1.47, 0.012, 0.0055, 0, 0.0006), 'cheek', 'head');
+  const EY = 1.503;
+  for (const s of [-1, 1]) {
+    const ex = s * 0.034;
+    // e1: big round eyes
+    P(blobOn(E, ex, EY, 0.0165, 0.02, 0, 0.0008), 'e1_white', 'head');
+    P(blobOn(E, ex, EY - 0.002, 0.0125, 0.0175, 0, 0.0016), 'e1_iris', 'head');
+    P(blobOn(E, ex, EY - 0.003, 0.0058, 0.0085, 0, 0.0024), 'e1_dark', 'head');
+    P(blobOn(E, ex - s * 0.004, EY + 0.006, 0.0042, 0.0042, 0, 0.0032), 'e1_shine', 'head');
+    P(blobOn(E, ex + s * 0.004, EY - 0.009, 0.002, 0.002, 0, 0.0032), 'e1_shine', 'head');
+    P(strokeOn(E, curve(x => EY + 0.021 - 55 * (x - ex) ** 2, ex - 0.019, ex + 0.019), male ? 0.0042 : 0.0052, 0.0036), 'e1_dark', 'head');
+    if (!male) P(strokeOn(E, [[ex + s * 0.017, EY + 0.017], [ex + s * 0.023, EY + 0.02], [ex + s * 0.027, EY + 0.025]], 0.0035, 0.0036), 'e1_dark', 'head');
+    P(strokeOn(E, curve(x => EY + 0.043 - 20 * (x - ex) ** 2, ex - 0.015, ex + 0.015), male ? 0.0042 : 0.0028, 0.0015), 'e1_dark', 'head');
+    // e2: sharp, narrow, flicked up at the outer corner
+    P(blobOn(E, ex, EY - 0.001, 0.018, 0.0125, s * 0.12, 0.0008), 'e2_white', 'head');
+    P(blobOn(E, ex, EY - 0.002, 0.0105, 0.0122, 0, 0.0016), 'e2_iris', 'head');
+    P(blobOn(E, ex, EY - 0.002, 0.004, 0.0075, 0, 0.0024), 'e2_dark', 'head');
+    P(blobOn(E, ex - s * 0.003, EY + 0.003, 0.0032, 0.0032, 0, 0.0032), 'e2_shine', 'head');
+    P(strokeOn(E, [[ex - s * 0.019, EY + 0.006], [ex - s * 0.006, EY + 0.0125], [ex + s * 0.01, EY + 0.0135], [ex + s * 0.024, EY + 0.018]], male ? 0.0045 : 0.005, 0.0036, false), 'e2_dark', 'head');
+    P(strokeOn(E, [[ex - s * 0.016, EY + 0.03], [ex, EY + 0.035], [ex + s * 0.018, EY + 0.039]], male ? 0.0048 : 0.003, 0.0015), 'e2_dark', 'head');
+    // e3: gentle, droopy outer corners, heavy lids
+    P(blobOn(E, ex, EY - 0.003, 0.016, 0.0145, 0, 0.0008), 'e3_white', 'head');
+    P(blobOn(E, ex, EY - 0.004, 0.012, 0.0135, 0, 0.0016), 'e3_iris', 'head');
+    P(blobOn(E, ex, EY - 0.005, 0.0055, 0.007, 0, 0.0024), 'e3_dark', 'head');
+    P(blobOn(E, ex - s * 0.004, EY + 0.001, 0.0036, 0.0036, 0, 0.0032), 'e3_shine', 'head');
+    P(strokeOn(E, curve(x => EY + 0.011 - 30 * (x - ex + s * 0.004) ** 2 - (x - ex) * s * 0.12, ex - 0.019, ex + 0.02), 0.0058, 0.0036), 'e3_dark', 'head');
+    P(strokeOn(E, curve(x => EY + 0.036 - 12 * (x - ex) ** 2 - (x - ex) * s * 0.15, ex - 0.015, ex + 0.016), male ? 0.004 : 0.0028, 0.0015), 'e3_dark', 'head');
+  }
+  const MY = 1.452;
+  P(strokeOn(E, curve(x => MY + 22 * x * x, -0.012, 0.012), 0.0028, 0.0012, false), 'm1_mouth', 'head');
+  P(blobOn(E, 0, MY - 0.002, 0.0095, 0.0072, 0, 0.0008), 'm2_mouth', 'head');
+  P(blobOn(E, 0, MY - 0.0055, 0.0055, 0.003, 0, 0.0014), 'm2_tongue', 'head');
+  P(strokeOn(E, curve(x => MY + 0.0045 * (((Math.abs(x) - 0.007) / 0.007) ** 2) - 0.0045, -0.014, 0.014, 20), 0.0026, 0.0012, false), 'm3_mouth', 'head');
+
+  // ---- hair options
+  const HS = { c: V(0, 1.527, -0.008), r: male ? V(0.096, 0.115, 0.107) : V(0.097, 0.117, 0.108) };
+  const on = (az, el, k = 1) => V(HS.c.x + HS.r.x * k * Math.cos(el) * Math.sin(az), HS.c.y + HS.r.y * k * Math.sin(el), HS.c.z + HS.r.z * k * Math.cos(el) * Math.cos(az));
+  const cap = (m, forehead = 0.3) => {
+    const g = ellipsoid([HS.c.x, HS.c.y, HS.c.z], [HS.r.x, HS.r.y, HS.r.z], 32, 22).toNonIndexed(), p = g.attributes.position, nn = g.attributes.normal, keep = [], nk = [];
+    for (let i = 0; i < p.count; i += 3) { let cy = 0, cz = 0; for (let j = 0; j < 3; j++) { cy += p.getY(i + j) / 3; cz += p.getZ(i + j) / 3; } const dy = (cy - HS.c.y) / HS.r.y, dz = (cz - HS.c.z) / HS.r.z; if (!((dz > 0.2 && dy < forehead) || (dy < -0.4 && dz > -0.6) || dy < -0.75)) for (let j = 0; j < 3; j++) { keep.push(p.getX(i + j), p.getY(i + j), p.getZ(i + j)); nk.push(nn.getX(i + j), nn.getY(i + j), nn.getZ(i + j)); } }
+    const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3)); q.setAttribute('normal', new THREE.Float32BufferAttribute(nk, 3)); P(q, m, 'head');
+  };
+  const hs = (m, pts, w, t, o = {}, wt = 'head') => P(strand(pts, Object.assign({ w, t, m, center: HS.c, seg: 10, radial: 5 }, o, { seg: Math.min(10, o.seg || 10) })), wt);
+  // bangs: a fringe across the forehead that stops above the eyes
+  const bangs = (m, n, len, spread = 0.62, sweep = 0) => {
+    for (let i = 0; i < n; i++) {
+      const u = n === 1 ? 0 : i / (n - 1) * 2 - 1, az = u * spread, tipY = 1.553 + Math.abs(u) * 0.018 - len + rr(-0.004, 0.004);
+      const tip = V(Math.sin(az) * 0.093 + sweep * 0.02, tipY, HS.c.z + Math.cos(az) * 0.112);
+      hs(m, [on(az * 0.6, 0.95), on(az, 0.55, 1.07), V(lerp(on(az, 0.55, 1.07).x, tip.x, 0.5) + sweep * 0.01, (1.6 + tipY) / 2, tip.z + 0.006), tip], rr(0.024, 0.03), 0.008, { seg: 10 });
+    }
+  };
+  const sideLock = (m, s, yEnd, fw = 0) => hs(m, [on(s * 1.05, 0.7), on(s * 1.25, 0.05, 1.08), V(s * 0.108, 1.43, 0.035 + fw), V(s * (0.11 + rr(0, 0.01)), yEnd, 0.04 + fw)], 0.03, 0.009);
+  if (!male) {
+    // h1: long straight hair to the waist
+    cap('h1_hair'); bangs('h1_hair', 9, 0.012);
+    for (const s of [-1, 1]) { sideLock('h1_hair', s, 1.2); sideLock('h1_hair', s, 1.28, -0.02); }
+    for (let i = 0; i < 22; i++) { const az = lerp(1.15, Math.PI * 2 - 1.15, i / 21), side = Math.abs(Math.sin(az)); const R0 = (r, y) => V(Math.sin(az) * r, y, HS.c.z + Math.cos(az) * r * 0.9 - 0.01); hs('h1_hair', [on(az, rr(0.55, 0.95)), on(az, 0.0, 1.08), R0(0.13 + side * 0.01, 1.35), R0(0.135 + side * 0.02, 1.15), R0(0.12 + side * 0.03 + rr(0, 0.02), 1.0 + rr(-0.03, 0.03))], rr(0.045, 0.055), 0.012, { seg: 12 }); }
+    // h2: high ponytail with a red tie
+    cap('h2_hair', 0.35); bangs('h2_hair', 7, 0.016, 0.55);
+    for (const s of [-1, 1]) sideLock('h2_hair', s, 1.36);
+    for (let i = 0; i < 16; i++) { const az = lerp(1.0, Math.PI * 2 - 1.0, i / 15); hs('h2_hair', [on(az, -0.35, 1.0), on(az, 0.2, 1.03), on(Math.PI, 0.62, 1.04)], 0.03, 0.008, { seg: 8 }); }
+    const pt = V(0, 1.625, -0.1);
+    P(torus(pt, 0.022, 0.009, V(0, 0.6, -1)), 'h2_tie', 'head');
+    for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, o = V(Math.cos(a) * 0.012, Math.sin(a) * 0.012, 0); hs('h2_hair', [pt.clone().add(o), V(o.x * 2, 1.64 + o.y, -0.17), V(o.x * 3 + rr(-0.01, 0.01), 1.52, -0.21), V(o.x * 3 + rr(-0.02, 0.02), 1.32 + rr(-0.03, 0.02), -0.17)], 0.03, 0.012, { seg: 14, center: V(0, 1.5, -0.12) }); }
+    // h3: chin-length bob, like hers but softer
+    cap('h3_hair'); bangs('h3_hair', 10, 0.01);
+    for (let i = 0; i < 22; i++) { const az = lerp(0.95, Math.PI * 2 - 0.95, i / 21), side = Math.abs(Math.sin(az)); const yb = 1.39 + rr(-0.01, 0.01) - side * 0.01; const R0 = (r, y) => V(Math.sin(az) * r, y, HS.c.z + Math.cos(az) * r * 0.95); hs('h3_hair', [on(az, rr(0.55, 0.95)), on(az, 0.05, 1.08), R0(0.118 + side * 0.012, lerp(1.47, yb, 0.5)), R0(0.125 + side * 0.016, yb)], rr(0.045, 0.055), 0.012); }
+  } else {
+    // h1: short and spiky
+    cap('h1_hair', 0.4); bangs('h1_hair', 6, 0.02, 0.55, 0.3);
+    for (let i = 0; i < 30; i++) { const az = rr(-Math.PI, Math.PI), el = rr(-0.25, 1.2); if (Math.cos(az) > 0.5 && el < 0.55) continue; const b = on(az, el, 0.98), dir = b.clone().sub(HS.c).normalize(); hs('h1_hair', [b, b.clone().addScaledVector(dir, 0.03).add(V(0, -0.012, -0.01)), b.clone().addScaledVector(dir, 0.055).add(V(0, -0.03, -0.02))], 0.022, 0.008, { seg: 6 }); }
+    for (const s of [-1, 1]) hs('h1_hair', [on(s * 1.15, 0.5), on(s * 1.3, -0.1, 1.06), V(s * 0.1, 1.455, 0.015)], 0.022, 0.008, { seg: 6 });
+    // h2: swept back and tied low at the nape
+    cap('h2_hair', 0.42); bangs('h2_hair', 4, 0.03, 0.35, -0.6);
+    for (let i = 0; i < 14; i++) { const az = lerp(-0.6, 0.6, i / 13); hs('h2_hair', [on(az, 0.42, 1.02), on(az * 1.6, 0.95, 1.05), on(Math.PI - az * 0.4, 0.3, 1.04), on(Math.PI, -0.3, 1.0)], 0.03, 0.008, { seg: 10 }); }
+    for (const s of [-1, 1]) sideLock('h2_hair', s, 1.44);
+    const nt = V(0, 1.45, -0.1); P(torus(nt, 0.016, 0.007, V(0, -0.3, -1)), 'h2_tie', 'head');
+    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2, o = V(Math.cos(a) * 0.009, Math.sin(a) * 0.009, 0); hs('h2_hair', [nt.clone().add(o), V(o.x, 1.41 + o.y, -0.115), V(o.x * 1.5 + rr(-0.008, 0.008), 1.3, -0.11), V(o.x * 2 + rr(-0.01, 0.01), 1.21 + rr(-0.02, 0.02), -0.1)], 0.022, 0.01, { seg: 10, center: V(0, 1.4, -0.06) }, 'J_Chest'); }
+    // h3: shaggy, to the neck, layered fringe
+    cap('h3_hair'); bangs('h3_hair', 8, 0.022, 0.66, 0.15);
+    for (let i = 0; i < 20; i++) { const az = lerp(1.0, Math.PI * 2 - 1.0, i / 19), side = Math.abs(Math.sin(az)), yb = 1.42 + rr(-0.02, 0.015); const R0 = (r, y) => V(Math.sin(az) * r, y, HS.c.z + Math.cos(az) * r * 0.95); hs('h3_hair', [on(az, rr(0.55, 0.95)), on(az, 0.05, 1.08), R0(0.118 + side * 0.012, lerp(1.48, yb, 0.5)), R0(0.13 + side * 0.02 + rr(0, 0.02), yb)], rr(0.04, 0.05), 0.012); }
+    for (let i = 0; i < 10; i++) { const az = rr(-2.6, 2.6), el = rr(0.6, 1.2); hs('h3_hair', [on(az, el, 0.98), on(az + rr(-0.2, 0.2), el - 0.2, 1.1), on(az + rr(-0.3, 0.3), el - 0.4, 1.17)], 0.03, 0.01, { seg: 8 }); }
+  }
+
+  // ---- body under the clothes
+  const TP = male ? [[0.0, 0.9], [0.135, 0.9], [0.133, 0.98], [0.135, 1.06], [0.145, 1.16], [0.155, 1.24], [0.166, 1.3], [0.122, 1.338], [0.055, 1.352], [0.0, 1.357]]
+    : [[0.0, 0.9], [0.13, 0.9], [0.125, 0.98], [0.12, 1.06], [0.128, 1.16], [0.134, 1.24], [0.148, 1.3], [0.11, 1.335], [0.05, 1.35], [0.0, 1.355]];
+  const TSZ = male ? 0.7 : 0.7, grow = (prof, d) => prof.map(([r, y]) => [r ? r + d : 0, y]);
+  const kimonoTop = (m, collar, under, sleeve, cuff, tight = false) => {
+    P(lathe(TP, TSZ, 40), m);
+    for (const [s, lift] of [[1, 0.004], [-1, 0.008]]) {
+      P(conform(quadStrip([[s * 0.046, 1.345], [s * 0.024, 1.345], [-s * 0.06, 1.06], [-s * 0.082, 1.06]]), TP, TSZ, 1, lift), under);
+      P(conform(quadStrip([[s * 0.074, 1.343], [s * 0.046, 1.343], [-s * 0.082, 1.06], [-s * 0.11, 1.06]]), TP, TSZ, 1, lift + 0.001), collar);
+    }
+    for (const s of [-1, 1]) {
+      const end = tight ? 0.56 : 0.6, r1 = tight ? 0.07 : 0.135, g = tube(V(s * 0.12, 1.3, 0), V(s * end, 1.29, 0), 0.07, r1, 28, true);
+      const p = g.attributes.position; if (!tight) { for (let i = 0; i < p.count; i++) { const t = (Math.abs(p.getX(i)) - 0.12) / 0.48; p.setY(i, p.getY(i) - 0.045 * t * t); p.setZ(i, p.getZ(i) * (1 - 0.25 * t)); } g.computeVertexNormals(); }
+      P(g, sleeve); P(tube(V(s * 0.12, 1.3, 0), V(s * end, 1.29, 0), 0.06, tight ? 0.055 : 0.05, 16), sleeve);
+      const t = new THREE.TorusGeometry(1, 0.035, 6, 40); t.rotateY(Math.PI / 2); t.scale(0.35, r1 * 1.03, r1 * (tight ? 1.0 : 0.77)); t.translate(s * (end - 0.002), 1.29 - (tight ? 0 : 0.045), 0); P(t, cuff);
+    }
+  };
+  const obi = (m, y0, y1, extra = 0.012) => P(lathe([[0, y0], [profR(TP, y0) + extra, y0], [profR(TP, y1) + extra, y1], [0, y1]], TSZ + extra, 40), m);
+  // o1: white kosode, coloured hakama (like hers)
+  kimonoTop('o1_top', 'o1_collar', 'o1_bottom', 'o1_top', 'o1_bottom');
+  obi('o1_bottom', 1.075, 0.965);
+  {
+    const g = lathe([[0.0, 1.02], [0.138 + (male ? 0.01 : 0), 1.02], [0.15 + (male ? 0.01 : 0), 0.95], [0.185, 0.75], [0.225, 0.45], [0.255, 0.14], [0.262, 0.08], [0.255, 0.075], [0.0, 0.075]], 0.82, 48);
+    const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), y = p.getY(i), a = Math.atan2(x, z), k = 1 + 0.05 * Math.abs(Math.cos(a * 7)) * sm(1.0, 0.7, y); p.setX(i, x * k); p.setZ(i, z * k); } g.computeVertexNormals();
+    P(g, 'o1_bottom', 'skirt');
+    P(torus(V(0, 1.02, 0), profR(TP, 1.02) + 0.014, 0.004, V(0, 1, 0)), 'o1_collar');
+  }
+  // o2: yukata to the ankle, wide obi, bow at the back (a knot for him)
+  kimonoTop('o2_robe', 'o2_trim', 'o2_robe', 'o2_robe', 'o2_trim');
+  {
+    const g = lathe([[0.0, 1.0], [0.135, 1.0], [0.14, 0.9], [0.152, 0.6], [0.165, 0.3], [0.172, 0.1], [0.168, 0.085], [0.0, 0.085]], 0.82, 56);
+    P(g, 'o2_robe', 'skirt');
+    // the front overlap line down the skirt
+    P(conform(quadStrip([[-0.03, 0.99], [-0.015, 0.99], [0.04, 0.09], [0.025, 0.09]], 20), [[0.135, 1.0], [0.14, 0.9], [0.152, 0.6], [0.165, 0.3], [0.172, 0.08]], 0.82, 1, 0.002), 'o2_trim', 'skirt');
+    obi('o2_obi', 1.1, 0.94, 0.016);
+    const c = V(0, 1.02, -(0.7 * profR(TP, 1.02) + 0.03));
+    if (!male) for (const s of [-1, 1]) P(basis(ellipsoid([0, 0, 0], [0.07, 0.05, 0.022], 16, 10), c.clone().add(V(s * 0.065, 0.01, -0.005)), V(-s * 1.5, 1, 0), V(0, 0, -1)), 'o2_obi', 'J_Spine');
+    P(ellipsoid([c.x, c.y, c.z - 0.006], male ? [0.03, 0.025, 0.02] : [0.028, 0.034, 0.02], 12, 8), 'o2_obi', 'J_Spine');
+    if (male) for (const s of [-1, 1]) P(strand([c.clone().add(V(s * 0.01, -0.01, -0.01)), c.clone().add(V(s * 0.03, -0.06, -0.02)), c.clone().add(V(s * 0.035, -0.12, -0.02))], { w: 0.022, t: 0.006, up: V(0, 0, -1), m: 'o2_obi', seg: 6, prof: () => 1, closeTip: false }), 'J_Hips');
+  }
+  // o3: shirt, an open haori jacket to the hips, trousers with leg wraps, a sash
+  kimonoTop('o3_shirt', 'o3_shirt', 'o3_sash', 'o3_jacket', 'o3_shirt', true);
+  {
+    const JP = grow(TP.slice(0, 8), 0.012); JP[0] = [0.15, 0.8]; JP.splice(1, 0, [0.15, 0.85]);
+    const jk = lathe(JP.filter(q => q[0] > 0), TSZ + 0.03, 40, 0, 0, 0.35, Math.PI * 2 - 0.7); P(jk, 'o3_jacket');
+    P(lathe([[0.152, 0.8], [0.155, 0.83]], TSZ + 0.03, 40, 0, 0, 0.35, Math.PI * 2 - 0.7), 'o3_trim');
+    for (const s of [-1, 1]) P(tube(V(s * 0.06, 0.83, 0.12), V(s * 0.045, 1.33, 0.065), 0.012, 0.01, 6), 'o3_trim'); // lapels
+    for (const s of [-1, 1]) P(tube(V(s * 0.03, 1.12, 0.1), V(0, 1.11, 0.108), 0.004, 0.004, 5), 'o3_tie');
+    obi('o3_sash', 1.0, 0.94, 0.006);
+    P(lathe([[0, 1.0], [0.135, 1.0], [0.145, 0.9], [0.15, 0.84], [0, 0.82]], 0.85, 40), 'o3_pants', 'hips');
+    for (const s of [-1, 1]) {
+      const x = s * 0.09;
+      P(tube(V(x, 0.9, 0), V(x, 0.45, 0), 0.085, 0.07, 18), 'o3_pants');
+      P(tube(V(x, 0.46, 0), V(x, 0.11, 0), 0.07, 0.052, 18), 'o3_pants');
+      P(tube(V(x, 0.42, 0), V(x, 0.12, 0), 0.06, 0.047, 16), 'o3_wrap');
+      for (let k = 0; k < 4; k++) P(torus(V(x, 0.18 + k * 0.07, 0), 0.058 - k * 0.002 + 0.004 * k, 0.004, V(0, 1, 0.25)), 'o3_tie');
+    }
+  }
+  // legs + feet: white tabi in sandals
+  for (const s of [-1, 1]) {
+    const x = s * 0.09;
+    P(tube(V(x, 0.5, 0), V(x, 0.08, 0), male ? 0.05 : 0.045, male ? 0.037 : 0.034, 14), 'skin');
+    const f = ellipsoid([0, 0, 0], [0.04, 0.035, 0.1], 18, 12), fp = f.attributes.position; for (let i = 0; i < fp.count; i++) if (fp.getY(i) < -0.01) fp.setY(i, -0.01); f.computeVertexNormals(); f.translate(x, 0.035, 0.035); P(f, 'tabi');
+    { const z = new THREE.CylinderGeometry(0.045, 0.045, 0.014, 20); z.scale(1, 1, 2.4); z.translate(x, 0.007, 0.035); P(z, 'zori'); }
+    P(strand([V(x - 0.035, 0.03, 0.03), V(x, 0.07, 0.09), V(x + 0.035, 0.03, 0.03)], { w: 0.006, t: 0.006, up: V(0, 0, 1), m: 'strap', seg: 8, prof: () => 1, closeTip: false, radial: 5 }));
+  }
+  { const g = new THREE.BufferGeometry(); const hy = male ? 1.7 : 1.78; g.setAttribute('position', new THREE.Float32BufferAttribute([0, hy, -0.02, 0, hy, -0.02, 0, hy, -0.02], 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3)); P(g, 'skin', 'head'); }
   return { root: assemble(C, parts, LBONES, v => ladyW(v), skirtW), BL: LBONES };
 }

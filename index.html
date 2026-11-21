@@ -113,6 +113,23 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
 .screen ul{margin:0 0 18px;padding-left:20px;line-height:1.6;font-size:13.5px}
 .screen ul li::marker{color:var(--sakura)}
 .screen .row{display:flex;gap:8px;flex-wrap:wrap}
+.who{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:-4px 0 14px;font-size:14px;font-weight:700;color:var(--dusk)}
+.who span{margin-right:4px}
+.pick{font:inherit;font-size:14px;border:2px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;cursor:pointer;color:inherit}
+.pick[aria-pressed="true"]{background:var(--dusk);border-color:var(--dusk);color:#fff}
+.pick.alt{border-style:dashed}
+#lookModal{z-index:40}
+#lookModal .card{width:min(560px,100%)}
+.lookWrap{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin:8px 0 14px}
+#lookCanvas{width:200px;height:267px;border-radius:14px;background:linear-gradient(#cfe7ff,#f4e9ff);flex:none}
+#lookRows{flex:1;min-width:220px;display:grid;gap:8px}
+.lrow{display:grid;grid-template-columns:70px 32px 1fr 32px;align-items:center;gap:6px;font-size:13.5px}
+.lrow b{font-weight:700}
+.lrow .val{text-align:center;font-weight:700}
+.lrow button.arr{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);background:#fff;font-size:15px;cursor:pointer;color:inherit}
+.swatches{display:flex;gap:5px;flex-wrap:wrap;grid-column:2/5}
+.swatches button{width:24px;height:24px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer}
+.swatches button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--dusk)}
 .screen .btn{font-size:16px;padding:12px 18px;border-radius:12px}
 .screen .btn.alt{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
 #end h1{color:var(--ember)}
@@ -224,7 +241,7 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
   <div class="card" role="dialog" aria-labelledby="tradeTitle">
     <button class="x" id="tradeClose" aria-label="Close">×</button>
     <h3 id="tradeTitle">Trade</h3>
-    <p id="tradeText"></p>
+    <p id="tradeText" style="white-space:pre-line"></p>
     <div id="tradeRows"></div>
   </div>
 </div>
@@ -243,10 +260,34 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
   </div>
 </div>
 
+<div class="screen" id="chapter3" hidden>
+  <div class="card">
+    <h1>Chapter three: a family house</h1>
+    <div class="sub">Her shrine is whole. She doesn't hide from you anymore. She walks beside you, and the little ones need a bigger home.</div>
+    <ul>
+      <li>Grow your cabin into a <b>shataku</b>, one big house for everyone, in three steps. Start at the plan board by your cabin.</li>
+      <li>You'll need house plans. Tokubei, the old carpenter in the village, has some, if you can help him first.</li>
+      <li>Oharu the weaver can make a <b>red thread charm</b>. With it, carry a wispling to the village path and they'll come with you.</li>
+      <li>Tap her to talk. She has a lot to tell you.</li>
+    </ul>
+    <div class="row"><button class="btn" id="chapter3Btn">Begin</button></div>
+  </div>
+</div>
+
+<div class="modal" id="lookModal" hidden>
+  <div class="card" role="dialog" aria-labelledby="lookTitle">
+    <button class="x" id="lookClose" aria-label="Close">×</button>
+    <h3 id="lookTitle">Your look</h3>
+    <div class="lookWrap"><canvas id="lookCanvas" width="240" height="320"></canvas><div id="lookRows"></div></div>
+    <div class="row"><button class="btn" id="lookDone">Done</button></div>
+  </div>
+</div>
+
 <div class="modal" id="charModal" hidden>
   <div class="card" role="dialog" aria-labelledby="charTitle">
     <button class="x" id="charClose" aria-label="Close">×</button>
     <h3 id="charTitle">Characters</h3>
+    <div class="who" style="margin:6px 0 10px"><span>You</span><button class="pick" id="pickF2">Woman</button><button class="pick" id="pickM2">Man</button><button class="pick alt" id="lookBtn2">Change your look…</button></div>
     <p>Swap the built-in figures for your own VRoid characters. In VRoid Studio, use Export → Export as VRM, then pick the file here. Files stay in this browser.</p>
     <div id="charRows"></div>
     <input type="file" id="vrmFile" accept=".vrm,.glb" hidden>
@@ -267,7 +308,9 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
       <li>Once the table is built, the wisplings eat there once a day at sunset. They gather and drum on the table until you serve them, 1 food each.</li>
       <li>Tap a wispling (or press <b>E</b>) to pick them up. When one asks for <b>uppies</b>, go carry them before she does. While holding one, press <b>Q</b> or right-click (or tap Toss) to throw them up and catch them.</li>
       <li>Bring her something every day. If her wrath fills, the mountain wakes. Wake five wisplings and give each a bed to finish the first chapter.</li>
+      <li>Choose to play as a woman or a man below, and change your eyes, mouth, hair and clothes. You can change them later from the ☺ menu.</li>
     </ul>
+    <div class="who"><span>Play as</span><button class="pick" id="pickF" data-sex="f">Woman</button><button class="pick" id="pickM" data-sex="m">Man</button><button class="pick alt" id="lookBtn">Change your look…</button></div>
     <div class="row"><button class="btn" id="startBtn">Climb the mountain</button><button class="btn alt" id="charBtn2">Use my VRoid characters</button></div>
   </div>
 </div>
@@ -291,6 +334,7 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 window.THREE = THREE;
 (() => {
@@ -341,6 +385,7 @@ const POND = { x: -14, z: 8, r: 3.2 };
 function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az; const t = clamp(((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz), 0, 1); return Math.hypot(px - ax - t * dx, pz - az - t * dz); }
 function noise(x, z) { return Math.sin(x * 0.35) * Math.cos(z * 0.3) * 0.25 + Math.sin(x * 0.13 + z * 0.21) * 0.35 + Math.sin(x * 0.9 + z * 0.7) * 0.06; }
 // your cabin's inside is a room far under the hillside; heightAt() gives its floor (see 'inside your cabin')
+const TOWN_Y = -35;
 const HOME = { x: 150, z: 150, y: -80, w: 11, d: 8, h: 3.6 };
 const inHome = (x, z) => Math.abs(x - HOME.x) < HOME.w / 2 + 2 && Math.abs(z - HOME.z) < HOME.d / 2 + 2;
 let homeOn = false;
@@ -355,6 +400,9 @@ function heightAt(x, z) {
     const rise = e * 0.9 + e * e * 0.012;
     h += lerp(fall, rise, north) + n * Math.min(e, 6) * 0.5;
   }
+  // the village floor is level, so its houses and streets sit flat
+  const tx = clamp((Math.abs(x) - 42) / 7, 0, 1), tz = clamp(Math.max(56 - z, z - 110) / 7, 0, 1), tf = 1 - Math.max(tx, tz);
+  if (tf > 0) h = lerp(h, TOWN_Y, tf * tf * (3 - 2 * tf));
   const pd = Math.hypot(x - POND.x, z - POND.z);
   if (pd < POND.r + 0.6) h = Math.min(h, lerp(-0.6, h, clamp((pd - POND.r + 0.4) / 1, 0, 1)));
   return h;
@@ -485,6 +533,12 @@ const cabin = { type: 'cabin', x: CABIN.x, z: CABIN.z + 1.8, reach: 1.4, progres
   const roofG = new THREE.Group(); roofG.position.y = 2.55; g.add(roofG);
   const r1 = outline(M(new THREE.BoxGeometry(4.4, 0.18, 2.3), dark, 0, 0.5, 0.85, roofG), 1.03); r1.rotation.x = 0.5;
   const r2 = outline(M(new THREE.BoxGeometry(4.4, 0.18, 2.3), dark, 0, 0.5, -0.85, roofG), 1.03); r2.rotation.x = -0.5;
+  // gable ends and a ridge cap so the roof is closed, with no gaps under it
+  { const sh = new THREE.Shape(); sh.moveTo(-1.62, -0.02); sh.lineTo(1.62, -0.02); sh.lineTo(0, 0.92); sh.closePath();
+    const gg = new THREE.ExtrudeGeometry(sh, { depth: 3.8, bevelEnabled: false }); gg.translate(0, 0, -1.9); gg.rotateY(Math.PI / 2);
+    outline(M(gg, woodM, 0, 0, 0, roofG), 1.02);
+    for (const sx of [-1.91, 1.91]) for (let i = 0; i < 3; i++) M(new THREE.BoxGeometry(0.03, 0.05, 2.6 - i * 0.85), mat(0x9a6b45), sx, 0.18 + i * 0.27, 0, roofG);
+    const ridge = M(new THREE.CylinderGeometry(0.13, 0.13, 4.5, 8), dark, 0, 1.07, 0, roofG); ridge.rotation.z = Math.PI / 2; }
   // planks lying around while broken
   const planks = new THREE.Group(); g.add(planks);
   for (let i = 0; i < 3; i++) M(new THREE.BoxGeometry(1.6, 0.12, 0.3), woodM, 2.6, 0.1 + i * 0.13, 1.4 - i * 0.35, planks).rotation.y = i * 0.4;
@@ -643,7 +697,7 @@ let flame;
 
 // trees
 const SLOTS = [[-8, -6], [8, -7], [-14, -1], [15, -3], [-11, -15], [11, -15], [-18, -7], [18, -10]];
-const reserved = [[0, -16, 5], [0, -10, 3], [CABIN.x, CABIN.z, 4.5], [STOCK.x + 1, STOCK.z + 1, 2.5], [FIRE.x, FIRE.z, 2.5], [-3.5, 21.5, 2.5], [POND.x, POND.z, 4.5], [0, 2, 4], ...SLOTS.map(s => [s[0], s[1], 2.6])];
+const reserved = [[0, -16, 5], [0, -10, 3], [CABIN.x, CABIN.z, 4.5], [cabinPt(3.9, 0).x, cabinPt(3.9, 0).z, 3.4], [cabinPt(-3.9, 0).x, cabinPt(-3.9, 0).z, 3.4], [cabinPt(0, 3.4).x, cabinPt(0, 3.4).z, 2.5], [STOCK.x + 1, STOCK.z + 1, 2.5], [FIRE.x, FIRE.z, 2.5], [-3.5, 21.5, 2.5], [POND.x, POND.z, 4.5], [0, 2, 4], ...SLOTS.map(s => [s[0], s[1], 2.6])];
 function freeSpot(x, z, pad = 0) { for (const r of reserved) if (Math.hypot(x - r[0], z - r[1]) < r[2] + pad) return false; for (const s of PATHS) if (segDist(x, z, ...s) < 1.8) return false; for (const t of items) if (Math.hypot(x - t.x, z - t.z) < 2.2) return false; return true; }
 const trees = [];
 function makeTree(x, z, kind) {
@@ -707,32 +761,201 @@ function refreshBush(b) { b.berries.forEach((m, i) => m.visible = i < b.n); }
 }
 
 // ---------------------------------------------------------------- the village below
-const houses = [];
-{
-  const roofs = [0x6c5a8f, 0x8f5a5a, 0x4f6f80, 0x7a6a50];
-  const spots = [];
-  for (let n = 0, tries = 0; n < 22 && tries < 3000; tries++) {
-    const x = (R() - 0.5) * 80, z = 62 + R() * 45;
-    if (heightAt(x, z) > -33) continue;
-    if (spots.some(s => Math.hypot(s[0] - x, s[1] - z) < 6)) continue;
-    spots.push([x, z]); n++;
-  }
-  spots.forEach(([x, z], i) => {
-    const g = new THREE.Group(); placeY(g, x, z); g.rotation.y = (R() - 0.5) * 0.6; scene.add(g);
-    const big = 1 + R() * 0.5; g.scale.setScalar(2.2 * big);
-    const body = M(new THREE.BoxGeometry(2, 1.4, 1.6), mat(0xf1e4d0, {}), 0, 0.7, 0, g);
-    const roofM = mat(roofs[i % 4], {});
-    const roof = M(new THREE.ConeGeometry(1.7, 1, 4), roofM, 0, 1.9, 0, g); roof.rotation.y = Math.PI / 4; roof.scale.set(1.15, 1, 0.95);
-    const winM = new THREE.MeshBasicMaterial({ color: 0xffd58a });
-    M(new THREE.BoxGeometry(0.5, 0.4, 0.05), winM, -0.5, 0.8, 0.81, g); M(new THREE.BoxGeometry(0.5, 0.4, 0.05), winM, 0.5, 0.8, 0.81, g);
-    const fire = glow(0xff6a2a, 5, 0); fire.position.y = 2; g.add(fire);
-    houses.push({ g, body, roof, winM, fire, burn: false, x, z, y: g.position.y });
-  });
-  // village shrine tower (the one that holds no spirits)
-  const t = new THREE.Group(); placeY(t, 4, 85); t.scale.setScalar(3); scene.add(t);
-  M(new THREE.BoxGeometry(1.6, 3, 1.6), mat(0xe8dccb), 0, 1.5, 0, t);
-  M(new THREE.ConeGeometry(1.5, 1.2, 4), mat(0x3c3550), 0, 3.6, 0, t).rotation.y = Math.PI / 4;
+// Level ground with a fence around it: a main street from the gate to the shrine tower, a round plaza
+// with the well, two curving lanes, side alleys, and a stepping-stone path from every door to the street.
+const houses = [], townHouseCols = [];
+const TOWN = { x0: -37, x1: 37, z0: 60, z1: 107 };
+const TOWN_STREETS = [
+  [[[0, 58.5], [0, 101.5]], 3.6],
+  [[[-35, 80], [35, 80]], 3],
+  [[[-35, 70.8], [-22, 68.7], [-8, 69.3], [0, 69], [8, 69.3], [22, 68.7], [35, 70.8]], 2.6],
+  [[[-35, 92.2], [-22, 93.9], [-8, 93.3], [0, 93.4], [8, 93.3], [22, 93.9], [35, 92.2]], 2.6],
+  [[[-24, 68.8], [-24.6, 80], [-23.6, 93.8]], 2.0],
+  [[[24, 68.8], [24.6, 80], [23.6, 93.8]], 2.0],
+];
+const PLAZA = { x: 0, z: 80, r: 7.5 };
+const TOWN_GATE = V(0, 0, 62.5);
+// [x, z, facing, width, depth, wall, roof, style]   facing 0 = door to +z (south), PI = door to -z
+const HOUSE_SPEC = [
+  [-31, 64.6, 0, 5.6, 4.2, 0xf3e6d2, 0x5d6f8a, 0], [-16.5, 64.4, 0, 6.6, 4.4, 0xeee0cc, 0x8a5552, 1], [-9, 64.8, 0, 5, 4, 0xf6ead8, 0x5f7d62, 2],
+  [13.5, 64.4, 0, 6.2, 4.4, 0xf1e2cf, 0x6c5a8f, 1], [30.5, 64.6, 0, 5.6, 4.2, 0xf4e8d6, 0x8a6a44, 0],
+  [-31, 75.4, 0, 5.8, 4.2, 0xefe2cf, 0x8a5552, 2], [-17, 75.4, 0, 6, 4.2, 0xf6ead8, 0x4f6f80, 0], [-10.6, 75.6, 0, 4.4, 3.8, 0xf2e4d0, 0x7a6a50, 1],
+  [10.6, 75.6, 0, 4.4, 3.8, 0xf3e6d2, 0x6c5a8f, 2], [17, 75.4, 0, 6, 4.2, 0xeee0cc, 0x5f7d62, 1], [31, 75.4, 0, 5.8, 4.2, 0xf6ead8, 0x8a5552, 0],
+  [-31, 84.4, Math.PI, 5.8, 3.8, 0xf4e8d6, 0x4f6f80, 1], [-17, 84.4, Math.PI, 6, 3.8, 0xf1e2cf, 0x8a6a44, 2], [-10.6, 84.3, Math.PI, 4.4, 3.6, 0xefe2cf, 0x6c5a8f, 0],
+  [10.6, 84.3, Math.PI, 4.4, 3.6, 0xf6ead8, 0x8a5552, 1], [17, 84.4, Math.PI, 6, 3.8, 0xf3e6d2, 0x4f6f80, 0], [31, 84.4, Math.PI, 5.8, 3.8, 0xf2e4d0, 0x5f7d62, 2],
+  [-31, 89.3, 0, 5.6, 3.6, 0xeee0cc, 0x7a6a50, 0], [-12, 89.3, 0, 5.4, 3.6, 0xf6ead8, 0x5d6f8a, 2], [12, 89.3, 0, 5.4, 3.6, 0xf1e2cf, 0x8a6a44, 1], [31, 89.3, 0, 5.6, 3.6, 0xf3e6d2, 0x6c5a8f, 2],
+  [-31, 98, Math.PI, 5.8, 4.4, 0xf4e8d6, 0x8a5552, 1], [-17, 98, Math.PI, 6.2, 4.4, 0xefe2cf, 0x5f7d62, 0], [-9.6, 97.8, Math.PI, 4.6, 4, 0xf6ead8, 0x4f6f80, 2],
+  [17, 98, Math.PI, 6.2, 4.4, 0xf2e4d0, 0x7a6a50, 2], [31, 98, Math.PI, 5.8, 4.4, 0xf1e2cf, 0x6c5a8f, 1],
+];
+const townBits = { stone: [], wood: [], dark: [], cloth: [], green: [], pink: [], plaster: [], lamp: [], roofT: [] };
+const _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(), _te = new THREE.Euler(), _ts = new THREE.Vector3(1, 1, 1);
+// put a geometry into a merge list, moved into place (local frame g: position + rotation.y)
+function bit(list, geo, x, y, z, rx = 0, ry = 0, rz = 0, frame) {
+  const gg = geo.index ? geo.toNonIndexed() : geo.clone(); gg.deleteAttribute('uv');
+  _te.set(rx, ry, rz); _tq.setFromEuler(_te); _tm.compose(V(x, y, z), _tq, _ts); gg.applyMatrix4(_tm);
+  if (frame) { _te.set(0, frame.ry, 0); _tq.setFromEuler(_te); _tm.compose(V(frame.x, frame.y, frame.z), _tq, _ts); gg.applyMatrix4(_tm); }
+  list.push(gg); return gg;
 }
+function mergedMesh(list, material, parent = scene) { if (!list.length) return null; const m = new THREE.Mesh(mergeGeometries(list, false), material); m.castShadow = m.receiveShadow = true; parent.add(m); list.length = 0; return m; }
+const BOX = (w, h, d) => new THREE.BoxGeometry(w, h, d), CYL = (a, b, h, n = 8) => new THREE.CylinderGeometry(a, b, h, n);
+// a long slab or a filled gable, made from a 2D outline (u along z, v up) pushed out along x
+function prismX(pts, len) { const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]); sh.closePath(); const g = new THREE.ExtrudeGeometry(sh, { depth: len, bevelEnabled: false }); g.translate(0, 0, -len / 2); g.rotateY(Math.PI / 2); return g; }
+const winTownM = new THREE.MeshBasicMaterial({ color: 0xffd58a });
+function buildHouse([x, z, ry, w, d, wallC, roofC, style], i) {
+  const F = { x, y: TOWN_Y, z, ry }, L = { stone: [], wall: [], wood: [], roof: [], win: [], dark: [], cloth: [] };
+  const H = 2.6 + (style === 1 ? 0.2 : 0), Y0 = 0.42 + H, rise = d * 0.4, k = rise / (d / 2), ov = 0.75, hz = d / 2 + ov, t = 0.24;
+  // stone footing, sunk a little into the ground so nothing floats
+  bit(L.stone, BOX(w + 0.36, 0.58, d + 0.36), 0, 0.17, 0, 0, 0, 0, F);
+  for (let sx = -w / 2; sx <= w / 2 + 0.01; sx += 0.9) bit(L.dark, BOX(0.04, 0.3, d + 0.38), sx, 0.2, 0, 0, 0, 0, F);
+  // plaster walls, the gable ends filled right up to the roof
+  bit(L.wall, BOX(w, H, d), 0, 0.42 + H / 2, 0, 0, 0, 0, F);
+  bit(L.wall, prismX([[-d / 2, Y0 - 0.01], [d / 2, Y0 - 0.01], [0, Y0 + rise]], w), 0, 0, 0, 0, 0, 0, F);
+  // timber frame: corner posts, sill, beams
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) bit(L.wood, BOX(0.24, H + 0.02, 0.24), sx * (w / 2 - 0.08), 0.42 + H / 2, sz * (d / 2 - 0.08), 0, 0, 0, F);
+  for (const sz of [-1, 1]) { bit(L.wood, BOX(w + 0.08, 0.2, 0.12), 0, Y0 - 0.1, sz * (d / 2 + 0.02), 0, 0, 0, F); bit(L.wood, BOX(w + 0.06, 0.14, 0.1), 0, 0.5, sz * (d / 2 + 0.02), 0, 0, 0, F); bit(L.wood, BOX(w + 0.04, 0.1, 0.08), 0, 0.42 + H * 0.62, sz * (d / 2 + 0.02), 0, 0, 0, F); }
+  for (const sx of [-1, 1]) { bit(L.wood, BOX(0.12, 0.2, d + 0.08), sx * (w / 2 + 0.02), Y0 - 0.1, 0, 0, 0, 0, F); bit(L.wood, BOX(0.1, 0.12, d * 0.9), sx * (w / 2 + 0.04), Y0 + rise * 0.35, 0, 0, 0, 0, F); bit(L.wood, BOX(0.1, rise * 0.9, 0.12), sx * (w / 2 + 0.04), Y0 + rise * 0.42, 0, 0, 0, 0, F); }
+  for (const lx of [-w / 4, w / 4]) bit(L.wood, BOX(0.16, H, 0.14), lx, 0.42 + H / 2, -(d / 2 + 0.02), 0, 0, 0, F);
+  // the roof: one closed gable, thick, with deep eaves, a ridge, ridge-end tiles and eave boards
+  const yb = Y0 + rise;
+  bit(L.roof, prismX([[-hz, yb - hz * k], [0, yb], [hz, yb - hz * k], [hz, yb - hz * k + t], [0, yb + t * 1.15], [-hz, yb - hz * k + t]], w + ov * 1.6), 0, 0, 0, 0, 0, 0, F);
+  for (let r = 1; r <= 4; r++) { const u = hz * r / 4.6; for (const sz of [-1, 1]) bit(L.roof, BOX(w + ov * 1.6, 0.06, 0.08), 0, yb - u * k + t + 0.03, sz * u, sz * Math.atan(k), 0, 0, F); }
+  bit(L.dark, BOX(w + ov * 1.6 + 0.2, 0.24, 0.42), 0, yb + t * 1.15 + 0.05, 0, 0, 0, 0, F);
+  for (const sx of [-1, 1]) { bit(L.dark, BOX(0.3, 0.34, 0.46), sx * (w / 2 + ov * 0.8 + 0.1), yb + t * 1.15 + 0.12, 0, 0, 0, sx * -0.2, F); }
+  for (const sz of [-1, 1]) bit(L.wood, BOX(w + ov * 1.6, 0.16, 0.06), 0, yb - hz * k + 0.06, sz * (hz + 0.02), 0, 0, 0, F);
+  // front: a door with a noren curtain, a little porch roof, windows with lattice
+  const dx = style === 2 ? -w * 0.2 : style === 1 ? w * 0.18 : 0, fz = d / 2;
+  bit(L.dark, BOX(1.15, 1.95, 0.08), dx, 0.42 + 0.97, fz + 0.03, 0, 0, 0, F);
+  for (const s of [-1, 1]) bit(L.wood, BOX(0.1, 2.05, 0.1), dx + s * 0.62, 0.42 + 1.02, fz + 0.06, 0, 0, 0, F);
+  bit(L.wood, BOX(1.4, 0.12, 0.12), dx, 0.42 + 2.05, fz + 0.06, 0, 0, 0, F);
+  for (const s of [-0.37, 0, 0.37]) bit(L.cloth, BOX(0.34, 0.62, 0.03), dx + s, 0.42 + 1.66, fz + 0.12, 0, 0, 0, F);
+  bit(L.roof, BOX(2.0, 0.1, 0.9), dx, 0.42 + 2.32, fz + 0.38, 0.32, 0, 0, F);
+  for (const s of [-1, 1]) bit(L.wood, BOX(0.06, 0.06, 0.6), dx + s * 0.8, 0.42 + 2.2, fz + 0.3, 0.6, 0, 0, F);
+  bit(L.stone, BOX(1.4, 0.2, 0.7), dx, 0.1, fz + 0.55, 0, 0, 0, F);
+  const wins = []; for (const wx of [-w / 2 + 0.95, w / 2 - 0.95]) if (Math.abs(wx - dx) > 1.3) wins.push([wx, fz]);
+  wins.push([0, -fz]); if (w > 5.2) wins.push([-w / 4 - 0.6, -fz]);
+  for (const [wx, wz] of wins) {
+    const sg = Math.sign(wz);
+    bit(L.win, BOX(0.9, 0.7, 0.05), wx, 0.42 + 1.45, wz + sg * 0.02, 0, 0, 0, F);
+    bit(L.wood, BOX(1.08, 0.08, 0.1), wx, 0.42 + 1.06, wz + sg * 0.05, 0, 0, 0, F); bit(L.wood, BOX(1.08, 0.08, 0.1), wx, 0.42 + 1.84, wz + sg * 0.05, 0, 0, 0, F);
+    for (const lx of [-0.45, -0.15, 0.15, 0.45]) bit(L.wood, BOX(0.04, 0.72, 0.06), wx + lx, 0.42 + 1.45, wz + sg * 0.06, 0, 0, 0, F);
+    bit(L.wood, BOX(0.96, 0.04, 0.06), wx, 0.42 + 1.45, wz + sg * 0.06, 0, 0, 0, F);
+    if (sg > 0 && style !== 1) { bit(L.wood, BOX(1.0, 0.22, 0.3), wx, 0.42 + 0.92, wz + 0.17, 0, 0, 0, F); for (let f = 0; f < 4; f++) bit(townBits.pink, new THREE.SphereGeometry(0.1, 6, 4), wx - 0.36 + f * 0.24, 0.42 + 1.08, wz + 0.18, 0, 0, 0, F); }
+  }
+  // side windows on the gable ends
+  for (const sx of [-1, 1]) { bit(L.win, BOX(0.05, 0.55, 0.7), sx * (w / 2 + 0.02), 0.42 + 1.5, 0, 0, 0, 0, F); for (const lz of [-0.2, 0.2]) bit(L.wood, BOX(0.07, 0.6, 0.04), sx * (w / 2 + 0.05), 0.42 + 1.5, lz, 0, 0, 0, F); }
+  // a lantern by the door, and a few things that make a house look lived in
+  bit(L.wood, BOX(0.08, 1.6, 0.08), dx + 1.0, 0.8, fz + 0.9, 0, 0, 0, F); bit(L.win, BOX(0.26, 0.34, 0.26), dx + 1.0, 1.7, fz + 0.9, 0, 0, 0, F); bit(L.dark, BOX(0.36, 0.06, 0.36), dx + 1.0, 1.9, fz + 0.9, 0, 0, 0, F);
+  if (style === 0) { for (let j = 0; j < 3; j++) bit(L.wood, CYL(0.09, 0.09, 1.3, 6), w / 2 + 0.32, 0.12 + j * 0.17, -0.4 + (j % 2) * 0.08, Math.PI / 2, 0, 0, F); bit(L.wood, CYL(0.09, 0.09, 1.3, 6), w / 2 + 0.48, 0.12, -0.4, Math.PI / 2, 0, 0, F); }
+  if (style === 1) { bit(L.wood, CYL(0.3, 0.27, 0.7, 10), -w / 2 - 0.5, 0.35, fz - 0.6, 0, 0, 0, F); bit(L.dark, CYL(0.31, 0.31, 0.05, 10), -w / 2 - 0.5, 0.71, fz - 0.6, 0, 0, 0, F); bit(L.wood, BOX(1.6, 0.08, 0.4), -w / 2 + 1.3, 0.42, fz + 0.9, 0, 0, 0, F); for (const s of [-0.6, 0.6]) bit(L.wood, BOX(0.08, 0.4, 0.34), -w / 2 + 1.3 + s, 0.2, fz + 0.9, 0, 0, 0, F); }
+  if (style === 2) { for (let j = 0; j < 5; j++) bit(townBits.green, new THREE.SphereGeometry(0.42 + (j % 2) * 0.1, 8, 6), -w / 2 + 0.3 + j * (w - 0.6) / 4, 0.36, -d / 2 - 0.55, 0, 0, 0, F); }
+  const g = new THREE.Group(); scene.add(g);
+  const wallM = mat(wallC, {}), roofM = mat(roofC, {});
+  const body = mergedMesh(L.wall, wallM, g), roof = mergedMesh(L.roof, roofM, g);
+  mergedMesh(L.stone, mat(0xa7a0ad), g); mergedMesh(L.wood, mat(0x7a5238), g); mergedMesh(L.dark, mat(0x3c3346), g); mergedMesh(L.cloth, mat([0x3b5b8a, 0xb0413e, 0x5a7a4a, 0x6c4a7a][i % 4]), g);
+  const winM = new THREE.MeshBasicMaterial({ color: 0xffd58a }); mergedMesh(L.win, winM, g).castShadow = false;
+  const fire = glow(0xff6a2a, 7, 0); fire.position.set(x, TOWN_Y + 3, z); g.add(fire);
+  const fx = Math.sin(ry), fzw = Math.cos(ry);
+  const door = { x: x + (dx * Math.cos(ry)) + fx * (fz + 1.1), z: z - dx * Math.sin(ry) + fzw * (fz + 1.1) };
+  houses.push({ g, body, roof, winM, fire, burn: false, x, z, y: TOWN_Y, w, d, ry, door, roofM, wallM });
+  // circle colliders along the long side
+  const n = Math.max(2, Math.ceil(w / d) + 1);
+  for (let j = 0; j < n; j++) { const lx = -w / 2 + d / 2 + (w - d) * j / (n - 1); townHouseCols.push({ x: x + lx * Math.cos(ry), z: z - lx * Math.sin(ry), r: d / 2 + 0.35 }); }
+}
+HOUSE_SPEC.forEach(buildHouse);
+// streets and stepping-stone paths: cobbles with a darker kerb, mapped in world space so overlaps match up
+const cobbleTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  x.fillStyle = '#b9a88c'; x.fillRect(0, 0, 256, 256);
+  const rr = rng(7);
+  for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) {
+    const px = i * 28.4 + (j % 2) * 14 + rr() * 6, py = j * 28.4 + rr() * 6, l = 205 + rr() * 30 | 0;
+    x.fillStyle = `rgb(${l},${l - 14},${l - 34})`; x.beginPath(); x.ellipse(px % 256, py, 12 + rr() * 2, 11 + rr() * 2, rr(), 0, 7); x.fill();
+    if (px > 240) { x.beginPath(); x.ellipse(px - 256, py, 12, 11, 0, 0, 7); x.fill(); }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+})();
+function ribbon(segs, y, mat_, padW = 0, uvScale = 2.6) {
+  const pos = [], uv = [], push = (x, z) => { pos.push(x, y, z); uv.push(x / uvScale, z / uvScale); };
+  const disc = (cx, cz, r) => { const n = 14; for (let i = 0; i < n; i++) { const a0 = i / n * 6.283, a1 = (i + 1) / n * 6.283; push(cx, cz); push(cx + Math.cos(a1) * r, cz + Math.sin(a1) * r); push(cx + Math.cos(a0) * r, cz + Math.sin(a0) * r); } };
+  for (const [pts, w0] of segs) {
+    const w = (w0 + padW) / 2;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / L * w, nz = (bx - ax) / L * w;
+      push(ax + nx, az + nz); push(bx + nx, bz + nz); push(ax - nx, az - nz);
+      push(ax - nx, az - nz); push(bx + nx, bz + nz); push(bx - nx, bz - nz);
+    }
+    for (const [px, pz] of pts) disc(px, pz, w);
+  }
+  disc(PLAZA.x, PLAZA.z, PLAZA.r + padW / 2);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  // winding differs between pieces; make every triangle face up
+  const p = g.attributes.position; for (let i = 0; i < p.count; i += 3) { const ax = p.getX(i), az = p.getZ(i), bx = p.getX(i + 1), bz = p.getZ(i + 1), cx = p.getX(i + 2), cz = p.getZ(i + 2); if ((bx - ax) * (cz - az) - (bz - az) * (cx - ax) > 0) { for (const a of [p, g.attributes.uv]) { const s = a.itemSize; for (let k = 0; k < s; k++) { const t = a.array[(i + 1) * s + k]; a.array[(i + 1) * s + k] = a.array[(i + 2) * s + k]; a.array[(i + 2) * s + k] = t; } } } }
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, mat_); m.receiveShadow = true; scene.add(m); return m;
+}
+const doorPaths = houses.map(h => {
+  // walk from the door straight to the nearest street
+  let best = null, bd = 1e9;
+  for (const [pts] of TOWN_STREETS) for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, t = clamp(((h.door.x - ax) * dx + (h.door.z - az) * dz) / (dx * dx + dz * dz), 0, 1), px = ax + dx * t, pz = az + dz * t, d = Math.hypot(px - h.door.x, pz - h.door.z);
+    if (d < bd) { bd = d; best = [px, pz]; }
+  }
+  const back = [h.door.x - Math.sin(h.ry) * 0.6, h.door.z - Math.cos(h.ry) * 0.6];
+  return [[back, [h.door.x, h.door.z], best], 1.2];
+});
+const STORE = { x: 10.2, z: 100.6 };
+const extraPaths = [[[[0, 101], [0, 103.2]], 3], [[[1.5, 100.8], [STORE.x - 2.6, STORE.z]], 1.6], [[[5.2, 66.6], [1.6, 66.6]], 1.4]];
+ribbon([...TOWN_STREETS, ...doorPaths, ...extraPaths], TOWN_Y + 0.035, mat(0x7d7064), 0.5);
+ribbon([...TOWN_STREETS, ...doorPaths, ...extraPaths], TOWN_Y + 0.05, new THREE.MeshToonMaterial({ color: 0xffffff, map: cobbleTex, gradientMap: gradMap }), 0);
+const onStreet = (x, z, pad = 0) => { if (Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + pad) return true; for (const [pts, w] of [...TOWN_STREETS, ...doorPaths, ...extraPaths]) for (let i = 0; i < pts.length - 1; i++) if (segDist(x, z, ...pts[i], ...pts[i + 1]) < w / 2 + pad) return true; return false; };
+{
+  const T = townBits, Y = TOWN_Y, F0 = { x: 0, y: Y, z: 0, ry: 0 };
+  // the village gate over the main street
+  for (const s of [-1, 1]) { bit(T.wood, CYL(0.2, 0.23, 4.2, 10), s * 2.5, 2.1, 60.6, 0, 0, 0, F0); bit(T.stone, CYL(0.34, 0.4, 0.4, 10), s * 2.5, 0.15, 60.6, 0, 0, 0, F0); }
+  bit(T.wood, BOX(6.4, 0.32, 0.4), 0, 3.95, 60.6, 0, 0, 0, F0); bit(T.wood, BOX(5.4, 0.2, 0.26), 0, 3.3, 60.6, 0, 0, 0, F0);
+  bit(T.roofT, prismX([[-0.9, 4.1], [0, 4.6], [0.9, 4.1], [0.9, 4.28], [0, 4.8], [-0.9, 4.28]], 7.2), 0, 0, 60.6, 0, 0, 0, F0);
+  bit(T.plaster, BOX(1.3, 0.5, 0.06), 0, 3.62, 60.38, 0, 0, 0, F0);
+  // a low fence all round, open at the gate
+  const fence = (ax, az, bx, bz) => { const L = Math.hypot(bx - ax, bz - az), n = Math.ceil(L / 2.2), ang = Math.atan2(bx - ax, bz - az); for (let i = 0; i <= n; i++) { const t = i / n; bit(T.wood, BOX(0.14, 1.1, 0.14), lerp(ax, bx, t), 0.5, lerp(az, bz, t), 0, 0, 0, F0); } for (const hgt of [0.45, 0.85]) bit(T.wood, BOX(0.06, 0.09, L), (ax + bx) / 2, hgt, (az + bz) / 2, 0, ang, 0, F0); };
+  fence(-38.5, 60.6, -2.9, 60.6); fence(2.9, 60.6, 38.5, 60.6); fence(-38.5, 60.6, -38.5, 108); fence(38.5, 60.6, 38.5, 108); fence(-38.5, 108, 38.5, 108);
+  // stone lanterns round the plaza and down the main street
+  const toro = (x, z) => { bit(T.stone, BOX(0.7, 0.22, 0.7), x, 0.1, z, 0, 0, 0, F0); bit(T.stone, CYL(0.12, 0.15, 0.9, 6), x, 0.65, z, 0, 0, 0, F0); bit(T.stone, BOX(0.55, 0.12, 0.55), x, 1.13, z, 0, 0, 0, F0); bit(T.lamp, BOX(0.36, 0.34, 0.36), x, 1.36, z, 0, 0, 0, F0); bit(T.stone, new THREE.ConeGeometry(0.5, 0.36, 4), x, 1.7, z, 0, Math.PI / 4, 0, F0); townHouseCols.push({ x, z, r: 0.45 }); };
+  for (let a = 0; a < 4; a++) { const ang = Math.PI / 4 + a * Math.PI / 2; toro(Math.cos(ang) * 8.6, 80 + Math.sin(ang) * 8.6); }
+  for (const z of [64, 74, 87, 98]) for (const s of [-1, 1]) toro(s * 2.6, z);
+  // trees: round-headed maples and a few cherries, in gardens off the streets
+  const treeAt = (x, z, pink) => { bit(T.wood, CYL(0.14, 0.22, 2.2, 7), x, 1.1, z, 0, 0, 0, F0); const lst = pink ? T.pink : T.green; for (const [ox, oy, oz, r] of [[0, 2.6, 0, 1.1], [0.6, 2.3, 0.3, 0.8], [-0.55, 2.35, -0.2, 0.85], [0.1, 3.1, -0.3, 0.75]]) bit(lst, new THREE.SphereGeometry(r, 9, 7), x + ox, oy, z + oz, 0, 0, 0, F0); townHouseCols.push({ x, z, r: 0.4 }); };
+  [[-36, 62, 0], [4.2, 61.8, 1], [36, 63, 1], [-36, 105, 1], [36, 105, 0], [-6, 85.5, 1], [6, 86, 1], [-4.5, 105.5, 0], [-24, 105.5, 1], [24, 105.5, 0], [-36.5, 86.5, 0], [36.5, 74, 1], [-5.6, 72.8, 0], [5.6, 72.8, 0]].forEach(([x, z, p]) => treeAt(x, z, p));
+  // benches by the plaza
+  for (const [x, z, r] of [[-4.2, 87, 0.5], [4.2, 73.4, 0.5 + Math.PI]]) { bit(T.wood, BOX(1.8, 0.1, 0.5), x, 0.45, z, 0, r, 0, F0); for (const s of [-0.7, 0.7]) bit(T.wood, BOX(0.1, 0.42, 0.4), x + Math.cos(r) * s, 0.21, z - Math.sin(r) * s, 0, r, 0, F0); }
+  // the notice board by the gate
+  bit(T.wood, BOX(0.12, 2, 0.12), -5.00, 1, 63.60, 0, 0, 0, F0); bit(T.wood, BOX(0.12, 2, 0.12), -3.40, 1, 63.60, 0, 0, 0, F0); bit(T.wood, BOX(1.9, 1.1, 0.08), -4.20, 1.45, 63.65, 0, 0, 0, F0); bit(T.plaster, BOX(0.5, 0.6, 0.02), -4.55, 1.5, 63.71, 0, 0, 0, F0); bit(T.plaster, BOX(0.45, 0.4, 0.02), -3.85, 1.35, 63.71, 0, 0.1, 0, F0);
+  bit(T.roofT, BOX(2.2, 0.08, 0.6), -4.20, 2.08, 63.60, 0.2, 0, 0, F0); townHouseCols.push({ x: -4.2, z: 63.6, r: 0.7 });
+  // the village shrine tower at the end of the main street
+  const tw = { x: 0, y: Y, z: 105.2, ry: 0 };
+  bit(T.stone, BOX(5.6, 0.7, 5.6), 0, 0.25, 0, 0, 0, 0, tw); bit(T.plaster, BOX(4.6, 7.4, 4.6), 0, 4.3, 0, 0, 0, 0, tw);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) bit(T.wood, BOX(0.32, 7.6, 0.32), sx * 2.2, 4.3, sz * 2.2, 0, 0, 0, tw);
+  for (const hy of [2.2, 4.6, 7.8]) bit(T.wood, BOX(4.9, 0.22, 4.9), 0, hy, 0, 0, 0, 0, tw);
+  bit(T.roofT, new THREE.ConeGeometry(4.4, 1.6, 4), 0, 5.0, 0, 0, Math.PI / 4, 0, tw); bit(T.roofT, new THREE.ConeGeometry(3.9, 2.4, 4), 0, 9.2, 0, 0, Math.PI / 4, 0, tw); bit(T.dark, CYL(0.06, 0.1, 1.2, 6), 0, 10.8, 0, 0, 0, 0, tw);
+  bit(T.dark, BOX(1.4, 2.1, 0.08), 0, 1.65, -2.32, 0, 0, 0, tw); bit(T.lamp, BOX(0.9, 0.6, 0.06), 0, 6.1, -2.34, 0, 0, 0, tw);
+  townHouseCols.push({ x: 0, z: 105.2, r: 3.1 });
+  // the old storehouse (kura): thick white walls, black skirting, a heavy door
+  const st = { x: STORE.x, y: Y, z: STORE.z, ry: -Math.PI / 2 };
+  bit(T.stone, BOX(4.4, 0.6, 5), 0, 0.2, 0, 0, 0, 0, st); bit(T.plaster, BOX(4, 3.2, 4.6), 0, 2.1, 0, 0, 0, 0, st); bit(T.dark, BOX(4.04, 1.1, 4.64), 0, 1.0, 0, 0, 0, 0, st);
+  bit(T.plaster, prismX([[-2.3, 3.69], [2.3, 3.69], [0, 4.9]], 4), 0, 0, 0, 0, 0, 0, st);
+  bit(T.roofT, prismX([[-3.0, 3.3], [0, 5.0], [3.0, 3.3], [3.0, 3.55], [0, 5.28], [-3.0, 3.55]], 5.2), 0, 0, 0, 0, 0, 0, st); bit(T.dark, BOX(5.4, 0.26, 0.4), 0, 5.33, 0, 0, 0, 0, st);
+  bit(T.dark, BOX(0.5, 0.5, 0.06), -1.1, 3.0, 2.33, 0, 0, 0, st); bit(T.dark, BOX(0.5, 0.5, 0.06), 1.1, 3.0, 2.33, 0, 0, 0, st);
+  bit(T.stone, BOX(1.8, 0.3, 0.8), 0, 0.15, 2.7, 0, 0, 0, st);
+  townHouseCols.push({ x: STORE.x, z: STORE.z - 1.3, r: 2.3 }, { x: STORE.x, z: STORE.z + 1.3, r: 2.3 });
+  mergedMesh(T.stone, mat(0xa7a0ad)); mergedMesh(T.wood, mat(0x7a5238)); mergedMesh(T.dark, mat(0x2f2836)); mergedMesh(T.green, mat(0x5aa64a)); mergedMesh(T.pink, mat(0xf2b8cc)); mergedMesh(T.plaster, mat(0xf6eee2)); mergedMesh(T.roofT, mat(0x3c3550)); mergedMesh(T.lamp, winTownM).castShadow = false;
+}
+// the storehouse door: shut and locked until Jiro hands over the key
+const storeDoor = (() => {
+  const g = new THREE.Group(); g.position.set(STORE.x - 2.33, TOWN_Y, STORE.z); g.rotation.y = -Math.PI / 2; scene.add(g);
+  const leaf = M(BOX(1.5, 2.2, 0.16), mat(0x3a2f2a), 0, 1.5, 0.04, g); M(BOX(0.18, 0.18, 0.1), mat(0xc9a24a), 0.4, -0.1, 0.1, leaf); for (const yy of [-0.7, 0, 0.7]) M(BOX(1.5, 0.06, 0.04), mat(0x1d1418), 0, yy, 0.09, leaf);
+  const dark = M(BOX(1.4, 2.1, 0.05), basic(0x120e14), 0, 1.47, -0.1, g);
+  const mark = new THREE.Object3D(); g.add(mark);
+  return { g, leaf, mark, open: 0, want: 0, it: addItem({ type: 'storeDoor', x: STORE.x - 3.1, z: STORE.z, reach: 1.4, obj: mark }) };
+})();
 const villageLight = new THREE.PointLight(0xff5a2a, 0, 140, 1.5); villageLight.position.set(0, -15, 85); scene.add(villageLight);
 
 // ---------------------------------------------------------------- characters
@@ -929,14 +1152,14 @@ function applySingle(role) {
   } else if (role === 'player') {
     if (playerVRM) { player.g.remove(playerVRM.wrap); playerVRM = null; }
     player.proc.forEach(c => c.visible = !p);
-    if (p) { playerVRM = makeVRMInstance(p, true); player.g.add(playerVRM.wrap); }
+    if (p) { playerVRM = makeVRMInstance(p, true); player.g.add(playerVRM.wrap); dressPlayer(); }
   }
 }
-function applyRole(role) { if (role === 'lady' || role === 'player') applySingle(role); else spirits.forEach(applySpiritModel); }
+function applyRole(role) { if (role === 'player-female' || role === 'player-male') { if (role === lookRole()) applyPlayerLook(); return; } if (role === 'player' && !vrmProto.player) return applyPlayerLook(); if (role === 'lady' || role === 'player') applySingle(role); else spirits.forEach(applySpiritModel); if (role === 'player') dressPlayer(); }
 async function setRoleModel(role, buf, name) {
   const vrm = await parseVRM(buf);
   const old = vrmProto[role];
-  vrmProto[role] = Object.assign(analyzeVRM(vrm, ROLE_HEIGHT[role === 'lady' || role === 'player' ? role : 'wispling']), { name, size: buf.byteLength });
+  vrmProto[role] = Object.assign(analyzeVRM(vrm, ROLE_HEIGHT[role === 'lady' ? 'lady' : role.startsWith('player') ? 'player' : 'wispling']), { name, size: buf.byteLength });
   applyRole(role);
   if (old && old.vrm) try { VRMUtils.deepDispose(old.vrm.scene); } catch (e) { }
 }
@@ -1256,8 +1479,9 @@ class Spirit {
     // now and then, a wispling stops what it is doing and asks to be carried
     const calm = !this.carry && ['idle', 'wander', 'go'].includes(this.state);
     if (calm && state === 'play') { this.uppT -= dt; if (this.uppT <= 0 && P.holding !== this) { this.uppT = 50 + R() * 70; if (!spirits.some(s => s.state === 'uppies') && (P.where !== 'town' || ladyFree())) this.askUppies(); } }
+    if (this.inTown && this.state !== 'tagalong') { this.release(); this.state = 'tagalong'; }
     if (this.sulk > 0) this.sulk -= dt;
-    if (!table.done && !this.carry && this.hunger > 65 && W.food > 0 && !['toEat', 'eating', 'uppies'].includes(this.state)) { this.release(); this.state = 'toEat'; this.target.set(STOCK.x, 0, STOCK.z); }
+    if (!this.inTown && !table.done && !this.carry && this.hunger > 65 && W.food > 0 && !['toEat', 'eating', 'uppies'].includes(this.state)) { this.release(); this.state = 'toEat'; this.target.set(STOCK.x, 0, STOCK.z); }
     switch (this.state) {
       case 'idle': this.pickTask(); break;
       case 'uppies': {
@@ -1272,6 +1496,16 @@ class Spirit {
         this.sayT -= dt; if (this.sayT <= 0 && this.timer > 3) { this.sayT = 4.5 + R() * 1.5; sayUppies(this); }
         this.timer -= dt; this.uppAge += dt;
         if (this.timer <= 0) { this.state = 'idle'; this.sulk = 14; wrath = clamp(wrath + 3, 0, 100); floatText(this.pos, '...', '#b9c3df'); if (time - lastUppiesWhisper > 60) { lastUppiesWhisper = time; whisper('They asked you for uppies. You walked away.'); } }
+        break;
+      }
+      case 'tagalong': {
+        // in the village with you: trot along at your heel, and wave at people who can't see them
+        const f = fwd(), sx = -f.z, sz = f.x;
+        this.target.set(P.pos.x - f.x * 1.2 + sx * 0.8, 0, P.pos.z - f.z * 1.2 + sz * 0.8);
+        if (Math.hypot(this.target.x - this.pos.x, this.target.z - this.pos.z) > 14) { this.pos.copy(this.target); this._lp.copy(this.pos); }
+        const far = Math.hypot(this.target.x - this.pos.x, this.target.z - this.pos.z);
+        if (this.moveTo(dt, far > 3 ? 4.6 : 2.6, 0.35)) this.face = lerpAngle(this.face, P.face, 0.05);
+        this.timer -= dt; if (this.timer <= 0) { this.timer = 6 + R() * 8; const v = villagers.find(v => v.g.visible && Math.hypot(v.pos.x - this.pos.x, v.pos.z - this.pos.z) < 5); if (v) { this.setMoods([[2, { happy: 1, aa: 0.5 }]]); floatText(this.pos, v.child ? 'hi hi!' : 'hello!', '#ffd0dc'); } }
         break;
       }
       case 'wander': if (this.moveTo(dt, 1.6, 0.3)) { this.timer -= dt; if (this.timer < 0) this.state = 'idle'; } break;
@@ -1502,7 +1736,7 @@ function roomDone(s) {
 function startMeal() {
   if (!table.done || meal.on || !spirits.length) return;
   meal.on = true; meal.t = 0;
-  spirits.forEach(s => { s.ate = false; if (!s.held && !s.air && ['idle', 'wander', 'go', 'work'].includes(s.state)) { s.release(); s.state = 'idle'; } });
+  spirits.forEach(s => { s.ate = false; if (!s.inTown && !s.held && !s.air && ['idle', 'wander', 'go', 'work'].includes(s.state)) { s.release(); s.state = 'idle'; } });
   toast(P.where === 'home' ? 'Supper time! The wisplings are coming to the table.' : 'Supper time! The wisplings are heading into your cabin.');
   if (mealsServed === 0) setTimeout(() => whisper('Hear that? They are drumming on the table. Go and feed them.'), 6000);
   refreshHUD();
@@ -1553,7 +1787,7 @@ const ART = {
   rope: { name: 'Straw rope', where: 'trade at the peddler’s stump', got: false },
   charm: { name: 'Paper charm', where: 'a child in the village wants treats', got: false },
   bell: { name: 'Shrine bell', where: 'buy it at the village stall', got: false },
-  mirror: { name: 'Her mirror', where: 'the village storehouse, among the hollow ones', got: false },
+  mirror: { name: 'Her mirror', where: 'the village storehouse: ask Jiro for the key', got: false },
   hairpin: { name: 'Her hairpin', where: 'the pond, when the moon is up', got: false },
 };
 const STAGES = [
@@ -1631,6 +1865,7 @@ const voiceBase = s => 560 + (KINDS.indexOf(s.kind) * 37) % 170;
 function earVol(pos) {
   const sIn = inHome(pos.x, pos.z);
   if (P.where === 'home') return sIn ? clamp(1 - Math.hypot(pos.x - P.pos.x, pos.z - P.pos.z) / 20, 0, 1) : 0.35 * clamp(1 - (Math.hypot(pos.x - OUT_DOOR.x, pos.z - OUT_DOOR.z) + 4) / 32, 0, 1);
+  if (P.where === 'town') { const d = Math.hypot(pos.x - P.pos.x, pos.z - P.pos.z); return pos.z > 50 ? clamp(1 - d / 25, 0, 1) : 0; }
   if (P.where !== 'mountain') return 0;
   if (sIn) return 0.35 * clamp(1 - (Math.hypot(OUT_DOOR.x - P.pos.x, OUT_DOOR.z - P.pos.z) + 3) / 26, 0, 1);
   return clamp(1 - Math.hypot(pos.x - P.pos.x, pos.z - P.pos.z) / 32, 0, 1);
@@ -1678,7 +1913,16 @@ function refreshHUD() {
   if (spirits.length >= WIN_COUNT && !homeless) g = 'The mountain is full of little lights again.';
   $('sp-of').textContent = level === 1 ? `of ${WIN_COUNT} to wake` : 'awake';
   const qs = $('quests'); qs.hidden = level < 2; $('artChips').hidden = level < 2;
-  if (level >= 2) {
+  if (level >= 3) {
+    const st = SHATAKU[shatakuStage];
+    $('goal-head').textContent = st ? `Build a shataku · step ${shatakuStage + 1} of 3` : 'Your shataku is finished';
+    g = st ? `${st.title}: ` + Object.entries(st.need).map(([k, n]) => k === 'plans' ? 'Tokubei’s house plans' : `${n} ${k}`).join(', ') + '. Tap the plan board by your cabin.' : 'Rest now.';
+    if (homeless) g += ' Some wisplings still need beds.';
+    qs.innerHTML = '';
+    for (const [name, got, where] of [['House plans', Q.plans || shatakuStage >= 1, Q.pipe ? 'take Tokubei his pipe' : Q.askedPipe ? 'Kenta might know where Tokubei’s pipe went' : 'Tokubei the carpenter, in the village'], ['Red thread charm', Q.thread, Q.silk ? 'take the silk to Oharu, with 8 coins' : 'Oharu the weaver, in the village (optional)']]) { const li = document.createElement('li'); li.className = got ? 'done' : ''; li.innerHTML = '<b></b> <i></i>'; li.querySelector('b').textContent = name; li.querySelector('i').textContent = got ? '' : '· ' + where; qs.append(li); }
+    const ac = $('artChips'); ac.innerHTML = ''; const c = document.createElement('div'); c.className = 'chip art'; c.textContent = `Shataku ${shatakuStage}/3`; ac.append(c);
+    if (P.where === 'town') { const t = document.createElement('div'); t.className = 'chip art'; t.textContent = companion() ? 'In the village · with a wispling' : 'In the village'; ac.append(t); }
+  } else if (level >= 2) {
     const st = STAGES[shrineStage];
     $('goal-head').textContent = st ? `Restore her shrine · step ${shrineStage + 1} of 3` : 'Her shrine is whole';
     g = st ? `${st.title}: ` + Object.entries(st.need).map(([k, n]) => k === 'wood' || k === 'coins' ? `${n} ${k}` : ART[k].name).join(', ') + '. Bring it all to the shrine.' : 'Rest now.';
@@ -1839,6 +2083,11 @@ function itemLabel(it) {
     case 'shop': case 'ume': return 'Old Ume’s stall · trade';
     case 'hana': return ART.charm.got ? 'Hana' : 'Talk to Hana';
     case 'person': return 'Villager';
+    case 'intruder': return 'A villager from below';
+    case 'shataku': return `Build the shataku · step ${shatakuStage + 1} of 3`;
+    case 'lady': return 'Talk to her';
+    case 'npc': { const v = it.v, n = NPCS[v.npc]; return npcHasNews(v.npc) ? `Talk to ${n.name} · they have something for you` : `Talk to ${n.name}, ${n.role}`; }
+    case 'storeDoor': return Q.storeOpen ? 'The storehouse' : Q.key ? 'Unlock the storehouse' : 'The storehouse · locked';
     case 'mirror': return 'A tarnished mirror · take it';
     case 'hairpin': return 'Something glints in the reeds · take it';
     case 'shrine': return 'Make an offering';
@@ -1881,8 +2130,13 @@ function doInteract(it) {
     case 'shop': return shopTrade();
     case 'ume': return shopTrade();
     case 'hana': return hanaTalk();
-    case 'person': { const v = it.v; v.wait = 3; v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); return toast(VLINES[Math.floor(R() * VLINES.length)]); }
-    case 'mirror': if (ART.mirror.got) return; it.obj.visible = false; return gotArt('mirror', 'My mirror. They kept it in a box, with the rice.');
+    case 'person': { const v = it.v; v.wait = 3; v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); return toast(VLINES[(v.li++ + v.ph * 7 | 0) % VLINES.length]); }
+    case 'npc': return talkNPC(it.v);
+    case 'intruder': return toast(INTRUDER_LINES[intruder.seen % INTRUDER_LINES.length]);
+    case 'shataku': return openShataku();
+    case 'lady': return talkLady();
+    case 'storeDoor': if (Q.storeOpen) return; if (Q.key) return openStore(); return toast(level < 2 ? 'A storehouse with a heavy iron lock.' : 'Locked. Jiro, the storehouse keeper, has the key.');
+    case 'mirror': if (ART.mirror.got || !Q.storeOpen) return; it.obj.visible = false; return gotArt('mirror', 'My mirror. They kept it in a box, with the rice.');
     case 'hairpin': if (ART.hairpin.got) return; it.obj.visible = false; return gotArt('hairpin', 'Mother put that in my hair the morning they came.');
     case 'site':
       if (W.wood <= 0) return toast('You need wood to build. Chop a tree or ask wisplings to.');
@@ -2048,6 +2302,8 @@ function update(dt) {
   // lady
   updateLady(dt);
   updateEvil(dt);
+  updateIntruder(dt);
+  ladyIt.obj.visible = level >= 3 && P.where === 'mountain' && state === 'play' && !L.scaring && !L.fighting;
   if (state === 'erupting') updateEruption(dt);
   if (state === 'won') updateWin(dt);
   updateLava(dt);
@@ -2184,12 +2440,24 @@ function updateLady(dt) {
     L.target.copy(L.pos);
     placeLady(moving, dt); return;
   }
+  // someone from the village crept up the path: she walks out, rises up, and frightens them home
+  if (L.scareT > 0) L.scareT -= dt;
+  L.scaring = L.scareT > 0;
+  if (state === 'play' && intruder.on && intruder.state !== 'flee' && L.mode !== 'thank') {
+    if (L.carrying) ladyPutDown(); L.chase = null; L.hide = null; L.fleeing = false;
+    const ip = intruder.v.pos, dx = ip.x - L.pos.x, dz = ip.z - L.pos.z, d = Math.hypot(dx, dz);
+    L.face = Math.atan2(dx, dz); if (d < 9) L.scaring = true;
+    if (d > 4.2) { L.speed = d < 9 ? 3.0 : 2.4; const st = Math.min(d - 4.2, L.speed * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; moving = true; }
+    else scareIntruder();
+    L.target.copy(L.pos); placeLady(moving, dt); return;
+  }
+  if (L.scaring && state === 'play') { L.target.copy(L.pos); placeLady(false, dt); return; }
   if (state === 'play') {
     const here = youOnMountain(), dP = here ? Math.hypot(P.pos.x - L.pos.x, P.pos.z - L.pos.z) : 1e9;
     if (L.carrying) { L.carryT -= dt; if (L.carryT <= 0) ladyPutDown(); }
     L.hideT -= dt;
     // you came too close: slip away behind a tree
-    const tooClose = dP < (L.mode === 'follow' ? 7 : 8.5);
+    const tooClose = L.mode !== 'near' && dP < (L.mode === 'follow' ? 7 : 8.5);
     const hideBroken = L.hide && here && Math.hypot(L.hide.x - P.pos.x, L.hide.z - P.pos.z) < 6.5;
     if (tooClose && (!L.hide || hideBroken || L.hideT <= 0)) {
       const h = hideSpot(9, 24, L.pos); if (h) { L.hide = h; L.target.set(h.x, 0, h.z); L.hideT = 2.5; L.speed = 3.6; L.chase = null; L.fleeing = true; }
@@ -2208,10 +2476,14 @@ function updateLady(dt) {
     else if (!L.chase) {
       L.wait -= dt;
       // from behind her tree she watches you; when she is angry she stares openly
-      if (here && (L.hide || heat > 0.3 || L.mode === 'follow')) L.face = lerpAngle(L.face, Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z), 0.05);
+      if (here && (L.hide || heat > 0.3 || L.mode === 'follow' || L.mode === 'near')) L.face = lerpAngle(L.face, Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z), 0.05);
       if (L.wait <= 0) {
         L.wait = L.mode === 'follow' ? 2.5 + R() * 2 : 4 + R() * 5;
-        if (L.mode === 'follow' && here) {
+        if (L.mode === 'near' && here) {
+          // chapter three: she simply walks with you, a few steps away
+          for (let i = 0; i < 20; i++) { const a = R() * 6.28, r = 3 + R() * 2.5; let x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r; const rr = Math.hypot(x, z); if (rr > 24) { x *= 24 / rr; z *= 24 / rr; } if (Math.hypot(x - POND.x, z - POND.z) > 4 && !inHome(x, z)) { L.target.set(x, 0, z); L.hide = null; L.speed = Math.hypot(x - L.pos.x, z - L.pos.z) > 9 ? 2.6 : 1.3; break; } }
+          L.wait = 2 + R() * 3;
+        } else if (L.mode === 'follow' && here) {
           // chapter two: she trails you from a distance, slipping from tree to tree behind you
           const f = fwd(), behind = V(P.pos.x - f.x * 12, 0, P.pos.z - f.z * 12);
           const h = hideSpot(9, 17, behind); if (h && Math.hypot(h.x - P.pos.x, h.z - P.pos.z) > 8) { L.hide = h; L.target.set(h.x, 0, h.z); L.speed = 2.2; }
@@ -2224,20 +2496,26 @@ function updateLady(dt) {
   placeLady(moving, dt);
 }
 function placeLady(moving, dt = 1 / 60) {
-  lady.g.position.set(L.pos.x, heightAt(L.pos.x, L.pos.z) + 0.18 + Math.sin(time * 1.3) * 0.08, L.pos.z);
+  // she walks on the ground like anyone else; she only rises into the air to fight or to frighten
+  L.floatAmt = lerp(L.floatAmt || 0, (L.fighting || L.scaring) ? 1 : 0, 1 - Math.exp(-dt * 4));
+  const fl = L.floatAmt;
+  L.walkAmt = lerp(L.walkAmt || 0, moving && fl < 0.5 ? 1 : 0, 1 - Math.exp(-dt * 8));
+  L.walkPh = (L.walkPh || 0) + dt * (2.4 + L.speed * 2.2) * (moving ? 1 : 0);
+  const bob = L.walkAmt * Math.abs(Math.sin(L.walkPh)) * 0.035;
+  lady.g.position.set(L.pos.x, heightAt(L.pos.x, L.pos.z) + bob + fl * (0.75 + Math.sin(time * 1.3) * 0.1), L.pos.z);
   lady.g.scale.setScalar(L.scale);
   lady.g.rotation.y = lerpAngle(lady.g.rotation.y, L.face, 0.08);
-  lady.g.rotation.z = moving ? Math.sin(time * 1.5) * 0.03 : 0;
+  lady.g.rotation.z = fl > 0.5 && moving ? Math.sin(time * 1.5) * 0.03 : 0;
   const giving = state === 'thanks' && L.giving;
   lady.arms.forEach(a => { a.piv.rotation.x = L.carrying || giving ? -1.05 : 0; a.piv.rotation.z = L.carrying ? -a.s * 0.45 : a.s * 0.06; });
   lady.head.rotation.x = L.carrying || L.bow ? 0.25 + (L.bow || 0) : 0;
   // what her mask shows
   const hungryN = spirits.filter(s => s.hunger > 80).length;
-  setLadyFace(L.fighting ? 'angry' : state === 'thanks' ? (L.giving || L.bow ? 'happy' : 'calm') : L.carrying ? 'happy' : wrath > 60 ? 'angry' : L.fleeing ? 'shy' : hungryN || wrath > 45 ? 'sad' : 'calm');
+  setLadyFace(L.fighting || L.scaring ? 'angry' : state === 'thanks' ? (L.giving || L.bow ? 'happy' : 'calm') : L.carrying ? 'happy' : wrath > 60 ? 'angry' : L.fleeing ? 'shy' : hungryN || wrath > 45 ? 'sad' : 'calm');
   updateLadyFace(dt);
-  const fp = FACE_POSE[ladyFace.cur] || FACE_POSE.calm, cast = L.casting ? 0.55 + 0.4 * Math.max(0, Math.sin(time * 6)) : 0;
+  const fp = FACE_POSE[ladyFace.cur] || FACE_POSE.calm, cast = L.casting ? 0.55 + 0.4 * Math.max(0, Math.sin(time * 6)) : L.scaring ? 0.75 * L.floatAmt : 0;
   if (L.casting) lady.arms.forEach(a => { a.piv.rotation.x = -1.3 - cast * 0.3; a.piv.rotation.z = a.s * 0.3; });
-  if (ladyVRM) poseVRM(ladyVRM, { armsUp: cast, wave: !!L.casting, carry: L.carrying ? 1 : giving ? 0.8 : 0, headTilt: L.carrying ? 0.25 : (L.bow || 0) + fp[0] * (L.carrying ? 0 : 1) + (L.flinch > 0 ? -0.3 : 0), headRoll: fp[1], mood: {} }, dt);
+  if (ladyVRM) poseVRM(ladyVRM, { walk: L.walkPh, walkAmt: L.walkAmt * (L.carrying ? 0.6 : 0.8), armsUp: cast, wave: !!L.casting, carry: L.carrying ? 1 : giving ? 0.8 : 0, headTilt: L.carrying ? 0.25 : (L.bow || 0) + fp[0] * (L.carrying ? 0 : 1) + (L.flinch > 0 ? -0.3 : 0), headRoll: fp[1], mood: {} }, dt);
   if (L.flinch > 0) L.flinch -= dt;
   spinOrbs();
 }
@@ -2440,7 +2718,7 @@ $('restoreBtn').onclick = () => {
   for (const [k, n] of Object.entries(st.need)) if (have(k) < n) return;
   if (st.need.wood) W.wood -= st.need.wood; if (st.need.coins) W.coins -= st.need.coins;
   shrineStage++; applyShrineStage(); offered(10); chime(); setTimeout(chime, 300); whisper(st.line); closeShrine(); refreshHUD();
-  if (shrineStage >= STAGES.length) setTimeout(() => { if (state === 'play') startWin(); }, 3000);
+  if (shrineStage >= STAGES.length) setTimeout(() => { if (state === 'play') startChapter3(); }, 3000);
 };
 
 // trading (the peddler's stump, the village stall, the child at the well)
@@ -2469,7 +2747,7 @@ function peddlerTrade() {
   ]);
 }
 function shopTrade() {
-  openTrade('Old Ume’s stall', '“Outcast or not, coins are coins. Don’t stare at anything, dear. People talk.”', [
+  openTrade('Old Ume’s stall', UME_LINES[umeI++ % UME_LINES.length], [
     { label: 'Shrine bell', sub: 'Brass, a little green. “From the old mountain shrine, they say.”', cost: '−10 coins', once: true, big: true, gone: ART.bell.got, ok: () => W.coins >= 10, buy: () => { W.coins -= 10; gotArt('bell', 'My bell. They sold my bell.'); } },
     { label: 'Rice bundle', sub: 'Three days of food for a wispling.', cost: '−2 coins · +3 food', ok: () => W.coins >= 2, buy: () => { W.coins -= 2; W.food += 3; tone(880, 0.1, 'triangle', 0.04); } },
     { label: 'Sweet dango', sub: 'She likes these.', cost: '−2 coins · +1 treat', ok: () => W.coins >= 2, buy: () => { W.coins -= 2; W.treats += 1; tone(880, 0.1, 'triangle', 0.04); } },
@@ -2477,7 +2755,7 @@ function shopTrade() {
   ]);
 }
 function hanaTalk() {
-  if (ART.charm.got) return toast('Hana: “Did the charm work? Grandma says it keeps the bad ones away.”');
+  if (ART.charm.got) return openTrade('Hana, the girl by the well', (hanaI % 2 ? HANA_LINES[(hanaI++ >> 1) % HANA_LINES.length] : (hanaI++, '“Did the charm work? Grandma says it keeps the bad ones away.”')) + (companion() ? '\n\nShe stares past you and gasps. “There’s a little one with you! Hello! HELLO!”' : ''), []);
   openTrade('Hana', '“You’re the one from the mountain! Grandma says not to talk to you. Do you have sweets? I’ll trade you my charm. It’s a real one.”', [
     { label: 'Give her 2 treats', sub: 'She pulls a paper charm from her sleeve.', cost: '−2 treats', once: true, big: true, ok: () => W.treats >= 2, buy: () => { W.treats -= 2; gotArt('charm', 'A child gave you that? A child, from that village?'); closeTrade(); } },
   ]);
@@ -2502,13 +2780,19 @@ const townSign = (() => {
   colliders.push({ x, z, r: 0.3 }); g.visible = false;
   return addItem({ type: 'toTown', x, z, reach: 1.5, obj: g });
 })();
-const townHouseCols = houses.map(h => ({ x: h.x, z: h.z, r: 1.35 * h.g.scale.x }));
-townHouseCols.push({ x: 4, z: 85, r: 2.7 });
 colliders.push(...townHouseCols);
-const TOWN = { x0: -38, x1: 38, z0: 60, z1: 106 };
-function townFree(x, z, pad) { if (x < TOWN.x0 + 2 || x > TOWN.x1 - 2 || z < TOWN.z0 + 2 || z > TOWN.z1 - 2) return false; for (const c of townHouseCols) if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return false; return true; }
+function townFree(x, z, pad) { if (x < TOWN.x0 + 1 || x > TOWN.x1 - 1 || z < TOWN.z0 + 1 || z > TOWN.z1 - 1) return false; for (const c of townHouseCols) if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return false; return true; }
 function townPoint(pad = 1.2, near, within = 99) { for (let i = 0; i < 60; i++) { const x = near ? near.x + (R() - 0.5) * within * 2 : lerp(TOWN.x0, TOWN.x1, R()), z = near ? near.z + (R() - 0.5) * within * 2 : lerp(TOWN.z0, TOWN.z1, R()); if (townFree(x, z, pad)) return V(x, 0, z); } return V(0, 0, 66); }
-const TOWN_GATE = (() => { let best = V(0, 0, 64), bs = -1; for (let x = -24; x <= 24; x += 4) for (const z of [63, 66]) { let m = 99; for (const c of townHouseCols) m = Math.min(m, Math.hypot(x - c.x, z - c.z) - c.r); if (m > bs) { bs = m; best = V(x, 0, z); } } return best; })();
+// somewhere on a street that can be walked to in a straight line without going through a wall
+function streetPoint(from, near, within = 10) {
+  for (let i = 0; i < 40; i++) {
+    const x = near.x + (R() - 0.5) * within * 2, z = near.z + (R() - 0.5) * within * 2;
+    if (!onStreet(x, z) || !townFree(x, z, 0.6)) continue;
+    let ok = true; const d = Math.hypot(x - from.x, z - from.z); for (let t = 0.5; t < d; t += 0.7) { const px = from.x + (x - from.x) * t / d, pz = from.z + (z - from.z) * t / d; if (!townFree(px, pz, 0.35)) { ok = false; break; } }
+    if (ok) return V(x, 0, z);
+  }
+  return V(from.x, 0, from.z);
+}
 const townBack = (() => {
   const x = TOWN_GATE.x + 1.6, z = TOWN_GATE.z - 1.2, g = new THREE.Group(); placeY(g, x, z); scene.add(g);
   M(new THREE.CylinderGeometry(0.07, 0.08, 1.8, 6), mat(0x6b4a3a), 0, 0.9, 0, g);
@@ -2518,9 +2802,10 @@ const townBack = (() => {
 // villagers: wary, kind enough, and blind to what walks among them
 const villagers = [];
 const VLINES = ['“You’re the one they sent up the mountain.”', '“Don’t track ash in here.”', '“Spirits? Just stories for children.”', '“My grandmother left offerings up there. Nobody does now.”', '“Did you hear that? Like a bell, from the mountain.”', '“Buy something or move along.”', '“The rice is late this year. The mountain is angry, they say.”'];
+const newsTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 96; const x = c.getContext('2d'); x.fillStyle = '#ffd34a'; x.strokeStyle = '#5a3a20'; x.lineWidth = 6; x.font = '900 84px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.strokeText('!', 32, 50); x.fillText('!', 32, 50); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 function makeVillager(x, z, o) {
   const g = new THREE.Group(); scene.add(g);
-  const skin = mat(0xffe6d8), kim = mat(o.kimono), obi = mat(o.obi), hairM = mat(o.hair);
+  const skin = mat(o.skin || 0xffe6d8), kim = mat(o.kimono), obi = mat(o.obi), hairM = mat(o.hair);
   M(new THREE.CylinderGeometry(0.2, 0.32, 0.95, 12), kim, 0, 0.5, 0, g);
   M(new THREE.CylinderGeometry(0.21, 0.22, 0.14, 12), obi, 0, 1.0, 0, g);
   M(new THREE.CylinderGeometry(0.17, 0.2, 0.36, 12), kim, 0, 1.24, 0, g);
@@ -2530,24 +2815,116 @@ function makeVillager(x, z, o) {
   const cap = M(new THREE.SphereGeometry(0.19, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), hairM, 0, 0.02, -0.03, head); cap.rotation.x = -0.3;
   if (o.bun) M(new THREE.SphereGeometry(0.08, 8, 6), hairM, 0, 0.15, -0.13, head);
   if (o.buns) for (const s of [-1, 1]) M(new THREE.SphereGeometry(0.075, 8, 6), hairM, s * 0.15, 0.13, -0.04, head);
+  if (o.tail) { const t = M(new THREE.CylinderGeometry(0.05, 0.02, 0.34, 6), hairM, 0, -0.06, -0.2, head); t.rotation.x = 0.4; }
   if (o.hat) M(new THREE.ConeGeometry(0.44, 0.2, 14), mat(0xd9c08a), 0, 0.2, 0, head);
-  faceShell(face, 0.17, faceTex({ iris: o.iris || '#5a4636', lash: '#2a2238', brow: '#3b2a3f', mouth: o.mouth || 'smile' }));
-  rimify(g); g.scale.setScalar(o.child ? 0.72 : 1);
-  const v = { g, pos: V(x, 0, z), target: V(x, 0, z), wait: R() * 3, face: R() * 6.28, ph: R() * 6, still: !!o.still, child: !!o.child, name: o.name };
+  if (o.band) { const b = M(new THREE.TorusGeometry(0.175, 0.025, 6, 16), mat(o.band), 0, 0.06, 0, head); b.rotation.x = Math.PI / 2; }
+  if (o.beard) { const b = M(new THREE.ConeGeometry(0.09, 0.22, 8), hairM, 0, -0.2, 0.1, head); b.rotation.x = Math.PI + 0.3; }
+  if (o.apron) M(new THREE.BoxGeometry(0.42, 0.6, 0.03), mat(o.apron), 0, 0.62, 0.27, g).rotation.x = -0.12;
+  if (o.bundle) M(new THREE.BoxGeometry(0.4, 0.4, 0.3), mat(o.bundle), 0, 1.25, -0.3, g);
+  faceShell(face, 0.17, faceTex({ iris: o.iris || '#5a4636', lash: '#2a2238', brow: o.brow || '#3b2a3f', mouth: o.mouth || 'smile' }));
+  rimify(g); g.scale.setScalar(o.child ? 0.72 : o.scale || 1);
+  if (o.stoop) g.children.forEach(c => { if (c.position.y > 1.1) c.position.z += 0.06; });
+  const news = new THREE.Sprite(new THREE.SpriteMaterial({ map: newsTex, transparent: true, depthWrite: false })); news.scale.set(0.28, 0.42, 1); news.position.y = 2.15; news.visible = false; g.add(news);
+  const v = { g, news, pos: V(x, 0, z), target: V(x, 0, z), wait: R() * 3, face: R() * 6.28, ph: R() * 6, still: !!o.still, child: !!o.child, name: o.name, home: o.home || V(x, 0, z), li: 0, npc: o.npc || null };
   v.it = addItem({ type: o.type || 'person', x, z, pos: v.pos, reach: 1.1, obj: g, v });
   g.position.set(x, heightAt(x, z), z); villagers.push(v); return v;
 }
+
+// ---------------------------------------------------------------- who lives here, and what they know
+// Everyone holds a piece of the story of Rin, the girl the village gave to the mountain a hundred years ago.
+// Talk to someone again and they say the next thing on their mind. A gold "!" means they have something for you.
+const Q = { jiroAsked: false, slip: false, key: false, storeOpen: false, askedPipe: false, pipe: false, plans: false, silk: false, thread: false, metFuyu: false };
+const companion = () => spirits.find(s => s.inTown) || null;
+const NPCS = {
+  genzo: { name: 'Genzo', role: 'the village headman', house: 13, look: { kimono: 0x3a3560, obi: 0x9a8f80, hair: 0x6a6070, beard: true, stoop: true },
+    lines: ['“A hundred years ago the rains failed three summers running. My great-grandfather was headman then.”', '“The elders drew lots. It was a girl’s name on the stick. Rin, the bell-maker’s daughter.”', '“We tell the children she went up to marry the mountain. It is a kinder story than the true one.”', '“If you have made her shrine whole again… then perhaps this village owes you more than it owes me.”', '“Don’t look at me like that. I did not choose. I only remember.”'] },
+  sayo: { name: 'Sayo', role: 'the herb-woman', house: 6, look: { kimono: 0x8fae7a, obi: 0x4a3a30, hair: 0x2a2238, bun: true, apron: 0xf4ecd8 },
+    lines: ['“Feverfew, mugwort, a little ash from the mountain. Don’t laugh, it works.”', '“My grandmother said Rin sang to the babies while their mothers worked the fields.”', '“On still nights you can hear it from up there. Not words. Just someone humming a lullaby.”', '“Those little foxy lights on the mountain path, the children call them wisp-lings. They say they giggle.”', '“You smell like pine smoke and rice. You’re eating properly? Good.”'] },
+  kenta: { name: 'Kenta', role: 'the woodcutter’s boy', house: 0, look: { kimono: 0x6c7fb0, obi: 0x3a3560, hair: 0x3b2a3f, band: 0xd9483b, scale: 0.88 },
+    lines: ['“I went up the mountain path once. On a dare. I’m not scared of anything.”', '“…There was a lady. Tall. White mask. She was walking, like a person, and then she just… rose up.”', '“Her eyes went red and the trees all leaned at me. I ran so fast I lost a sandal.”', '“Don’t tell my father. He thinks I was fishing.”', '“Do the little glowing ones bite? Asking for a friend.”'] },
+  mitsu: { name: 'Mitsu', role: 'who keeps the silkworms', house: 4, look: { kimono: 0xb88aa8, obi: 0x6c5a8f, hair: 0x1d1418, tail: true },
+    lines: ['“Shh, the worms are spinning. You can hear them chewing the mulberry leaves if you listen.”', '“Silk from this valley went to the capital once. Now it’s mostly for Oharu’s loom.”', '“My shed leaks. Every winter I lose half the cocoons.”', '“Rin’s mother kept silkworms too. Some of these are their great-great-great-grandchildren, I suppose.”'] },
+  tokubei: { name: 'Tokubei', role: 'the old carpenter', house: 18, look: { kimono: 0x9a8f80, obi: 0x5a4a40, hair: 0xd8d0d8, hat: true, stoop: true },
+    lines: ['“My family built the mountain shrine. Cedar, no nails. My grandfather said you could hear it breathe.”', '“After they took the girl up, nobody would climb to mend it. Shameful. Good wood, left to rot.”', '“A house is just a promise you make to whoever sleeps in it.”', '“If you build something up there, square the corners. Spirits hate a crooked house.”'] },
+  oharu: { name: 'Oharu', role: 'the weaver', house: 9, look: { kimono: 0xd9483b, obi: 0xfff8ee, hair: 0x2a2238, bun: true },
+    lines: ['“Clack, clack. A loom is a slow way to make a fast heart quiet.”', '“Rin’s mother wove the shrine rope, the one at the gate. Red thread through the straw, for luck.”', '“They say a red thread ties together the people who are meant to find each other. It stretches, but it never breaks.”', '“Spirits can’t cross a village boundary on their own. But tied to someone by red thread… well. It’s an old story.”'] },
+  jiro: { name: 'Jiro', role: 'keeper of the storehouse', still: true, at: () => V(STORE.x - 3.4, 0, STORE.z - 2.3), look: { kimono: 0x7a6a50, obi: 0x3a3560, hair: 0x4a3a30, apron: 0x5a4a40 },
+    lines: ['“Everything the old shrine owned ended up in here. Boxes of it. Nobody wants it, nobody will throw it out.”', '“Rice on the bottom shelf, old shrine things on the top. The tall ones won’t go near the door. Can’t think why.”', '“I count the sacks every morning. One short, every morning. Something up there eats rice.”'] },
+  fuyu: { name: 'Fuyu', role: 'keeper of the village tower', still: true, at: () => V(2.2, 0, 102.0), look: { kimono: 0xfff8ee, obi: 0xb0413e, hair: 0xe8e0ea, bun: true, stoop: true },
+    lines: ['“This tower holds no spirit. It was built to look holy, so nobody would have to climb to the real one.”', '“Rin was my grandmother’s grandmother’s little sister. In our house we still say her name at the new year.”', '“The mirror in Jiro’s storehouse was hers. A girl’s mirror, to take up the mountain with her. They took it back after.”', '“When the mountain rumbles, I ring the little bell here and say sorry. It doesn’t help. I keep doing it.”'] },
+};
+function npcText(n) { n.li = n.li || 0; return n.lines[n.li++ % n.lines.length]; }
+// what someone has to say about your errands, and what they can give you
+function npcQuest(k) {
+  const n = NPCS[k];
+  switch (k) {
+    case 'jiro':
+      if (level < 2 || ART.mirror.got) return null;
+      if (Q.storeOpen) return { text: '“It’s open. Take what’s hers and go, before the tall ones notice.”' };
+      if (Q.slip) return { text: '“A prayer slip in Fuyu’s hand? Well. If the tower says so.”', offers: [{ label: 'Show him Fuyu’s prayer slip', sub: 'He sighs and hands over a heavy iron key.', cost: '−prayer slip · +storehouse key', once: true, big: true, ok: () => true, buy: () => { Q.slip = false; Q.key = true; chime(); toast('You got the storehouse key.'); refreshHUD(); } }] };
+      if (Q.key) return { text: '“You’ve got the key. Mind the step.”' };
+      Q.jiroAsked = true; return { text: '“A mirror? It’s in there, top shelf. But I don’t open the storehouse for outcasts. Only the tower keeper, Fuyu, says who goes in.”' };
+    case 'fuyu':
+      if (level < 2 || ART.mirror.got || Q.key || Q.storeOpen) return null;
+      if (Q.slip) return { text: '“Take my slip to Jiro. He’s by the storehouse, counting rice sacks.”' };
+      if (!Q.jiroAsked) return { text: '“If you want something from the storehouse, ask Jiro first. Then come back to me.”' };
+      return { text: '“You want Rin’s mirror, for her shrine? …Yes. Yes, she should have it back.”', offers: [{ label: 'Take her prayer slip', sub: 'She writes on a slip of paper and stamps it with red ink.', cost: '+prayer slip', once: true, big: true, ok: () => true, buy: () => { Q.slip = true; chime(); toast('Fuyu gave you a prayer slip. Show it to Jiro at the storehouse.'); refreshHUD(); closeTrade(); } }] };
+    case 'tokubei':
+      if (level < 3) return null;
+      if (Q.plans) return { text: '“Build it square. Big rooms, lots of doors. A family house wants to be walked through.”' };
+      if (Q.pipe) return { text: '“My pipe! Where did you… Kenta? That little thief. Here, a deal’s a deal.”', offers: [{ label: 'Give back his pipe', sub: 'He unrolls a stained scroll: the plans for a shataku, a big family house.', cost: '−pipe · +house plans', once: true, big: true, ok: () => true, buy: () => { Q.pipe = false; Q.plans = true; chime(); toast('You got the shataku plans. Build it at your cabin.'); refreshHUD(); } }] };
+      Q.askedPipe = true; return { text: '“A big house? For you and all those little ones? Hah. I have the plans for one. But I can’t think without my pipe, and I lost it somewhere near the gate. Find it and the plans are yours.”' };
+    case 'kenta':
+      if (level < 3 || !Q.askedPipe || Q.pipe || Q.plans) return null;
+      return { text: '“A pipe? What pipe? …Fine. I found it by the gate. I was going to give it back. Probably.”', offers: [{ label: 'Ask for the pipe', sub: 'He digs it out of his sleeve, a little chewed.', cost: '+Tokubei’s pipe', once: true, big: true, ok: () => true, buy: () => { Q.pipe = true; chime(); toast('You got Tokubei’s pipe.'); refreshHUD(); closeTrade(); } }] };
+    case 'mitsu':
+      if (level < 3 || Q.silk || Q.thread) return null;
+      return { text: '“Red silk? For Oharu? I’ll spin you a skein if you bring wood to patch my shed.”', offers: [{ label: 'Give her 4 wood', sub: 'She gives you a skein of red silk, soft as a breath.', cost: '−4 wood · +red silk', once: true, big: true, ok: () => W.wood >= 4, buy: () => { W.wood -= 4; Q.silk = true; chime(); toast('You got a skein of red silk. Oharu the weaver can use it.'); refreshHUD(); } }] };
+    case 'oharu':
+      if (level < 3 || Q.thread) return Q.thread ? { text: '“Keep the little one close. The thread only stretches so far.”' } : null;
+      if (!Q.silk) return { text: '“A charm to bring a spirit through the gate? I can weave one. I’ll need red silk, though. Mitsu keeps the silkworms. Her house is at the far end of the first lane, past Ume’s stall.”' };
+      return { text: '“That’s Mitsu’s silk. Good. Eight coins for my time, and the charm is yours.”', offers: [{ label: 'Red thread charm', sub: 'Tie it on, and one wispling can follow you into the village.', cost: '−red silk −8 coins', once: true, big: true, ok: () => W.coins >= 8, buy: () => { W.coins -= 8; Q.silk = false; Q.thread = true; chime(); setTimeout(chime, 300); toast('You got the red thread charm. Carry a wispling to the village path and they’ll come along.'); refreshHUD(); } }] };
+  }
+  return null;
+}
+// a gold "!" over anyone who has something new for you
+function npcHasNews(k) {
+  switch (k) {
+    case 'jiro': return level >= 2 && !ART.mirror.got && !Q.storeOpen && (!Q.jiroAsked || Q.slip);
+    case 'fuyu': return level >= 2 && !ART.mirror.got && Q.jiroAsked && !Q.slip && !Q.key && !Q.storeOpen;
+    case 'tokubei': return level >= 3 && !Q.plans && (!Q.askedPipe || Q.pipe);
+    case 'kenta': return level >= 3 && Q.askedPipe && !Q.pipe && !Q.plans;
+    case 'mitsu': return level >= 3 && !Q.silk && !Q.thread && !!NPCS.oharu.asked;
+    case 'oharu': return level >= 3 && !Q.thread && (!NPCS.oharu.asked || Q.silk);
+  }
+  return false;
+}
+function talkNPC(v) {
+  const k = v.npc, n = NPCS[k]; if (!n) return;
+  v.wait = 4; v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z);
+  if (k === 'oharu' && level >= 3) n.asked = true;
+  const q = npcQuest(k), line = npcText(n);
+  const extra = companion() && (k === 'kenta' || v.child) ? '\n\nThey squint at the empty air beside you. “Is… something there?”' : '';
+  openTrade(`${n.name}, ${n.role}`, q ? line + '\n\n' + q.text + extra : line + extra, q && q.offers || []);
+  tone(587, 0.08, 'triangle', 0.03);
+}
+for (const [k, n] of Object.entries(NPCS)) {
+  const h = n.house !== undefined ? houses[n.house] : null, p = n.at ? n.at() : V(h.door.x, 0, h.door.z);
+  n.v = makeVillager(p.x, p.z, Object.assign({ name: n.name, type: 'npc', npc: k, still: !!n.still, home: p }, n.look));
+}
 const KIMONO = [[0x6c7fb0, 0x3a3560, 0x3b2a3f], [0xc9805a, 0x6b4a3a, 0x2a2238], [0x8fae7a, 0xf2c45a, 0x4a3a30], [0xb88aa8, 0x6c5a8f, 0x1d1418], [0x9a8f80, 0xd9483b, 0x5a4a40]];
-for (let i = 0; i < 8; i++) { const p = townPoint(1.5); const k = KIMONO[i % KIMONO.length]; makeVillager(p.x, p.z, { kimono: k[0], obi: k[1], hair: k[2], hat: i % 3 === 0, bun: i % 3 === 1, name: 'Villager' }); }
-// the stall and the well
-const SHOP = (() => { for (let i = 0; i < 80; i++) { const p = townPoint(4.5, TOWN_GATE, 14); const d = Math.hypot(p.x - TOWN_GATE.x, p.z - TOWN_GATE.z); if (d > 7 && p.z > TOWN_GATE.z + 3) return p; } return townPoint(4.5); })(), WELL = townPoint(4, V(TOWN_GATE.x, 0, TOWN_GATE.z + 16), 12);
+for (let i = 0; i < 6; i++) { const h = houses[[2, 7, 11, 15, 20, 24][i]], p = V(h.door.x, 0, h.door.z); const k = KIMONO[i % KIMONO.length]; makeVillager(p.x, p.z, { kimono: k[0], obi: k[1], hair: k[2], hat: i % 3 === 0, bun: i % 3 === 1, bundle: i % 2 ? 0xd9c08a : 0, name: 'Villager', home: p }); }
+// the stall by the gate, and the well in the plaza
+const SHOP = V(5.4, 0, 66.4), WELL = V(PLAZA.x, 0, PLAZA.z);
+const UME_LINES = ['“Outcast or not, coins are coins. Don’t stare at anything, dear. People talk.”', '“That bell came down the mountain in my grandmother’s time. Nobody would hang it. Nobody would melt it either.”', '“Rin? Hush. We don’t say that name at the stall. Bad for business.”', '“Rice is dear this year. The mountain keeps the rain to herself, they say.”'];
+let umeI = 0;
 {
-  const g = new THREE.Group(); placeY(g, SHOP.x, SHOP.z); g.rotation.y = Math.atan2(TOWN_GATE.x - SHOP.x, TOWN_GATE.z - SHOP.z); scene.add(g);
+  const g = new THREE.Group(); placeY(g, SHOP.x, SHOP.z); g.rotation.y = -Math.PI / 2; scene.add(g);
   M(new THREE.BoxGeometry(2.4, 0.9, 0.9), mat(0x8a5a44), 0, 0.45, 0, g);
   for (const sx of [-1.1, 1.1]) M(new THREE.CylinderGeometry(0.06, 0.06, 2.3, 6), mat(0x6b4a3a), sx, 1.15, -0.35, g);
   for (let i = 0; i < 5; i++) { const a = M(new THREE.BoxGeometry(0.5, 0.06, 1.3), mat(i % 2 ? 0xfff8ee : 0x4f6f80), -1 + i * 0.5, 2.25, 0.1, g); a.rotation.x = 0.35; }
   [[0xf2c45a, -0.7], [0xe05a6a, -0.3], [0xa9dca4, 0.1], [0xfff8ee, 0.5]].forEach(([c, x]) => M(new THREE.SphereGeometry(0.12, 8, 6), mat(c), x, 0.98, 0.1, g));
-  colliders.push({ x: SHOP.x, z: SHOP.z, r: 1.3 });
+  colliders.push({ x: SHOP.x, z: SHOP.z, r: 1.3 }); townHouseCols.push({ x: SHOP.x, z: SHOP.z, r: 1.3 });
   addItem({ type: 'shop', x: SHOP.x, z: SHOP.z, reach: 1.8, obj: g });
   const back = g.localToWorld(V(0, 0, -0.9)); makeVillager(back.x, back.z, { kimono: 0x6c5a8f, obi: 0x3a3560, hair: 0xd8d0d8, bun: true, still: true, name: 'Ume', type: 'ume' }).face = g.rotation.y;
 }
@@ -2557,19 +2934,25 @@ const SHOP = (() => { for (let i = 0; i < 80; i++) { const p = townPoint(4.5, TO
   M(new THREE.CircleGeometry(0.78, 14), basic(0x1d1a2b), 0, 0.3, 0, g).rotation.x = -Math.PI / 2;
   for (const sx of [-0.8, 0.8]) M(new THREE.CylinderGeometry(0.06, 0.06, 1.8, 6), mat(0x6b4a3a), sx, 0.9, 0, g);
   const rf = M(new THREE.ConeGeometry(1.2, 0.6, 4), mat(0x3c3550), 0, 2.0, 0, g); rf.rotation.y = Math.PI / 4;
-  colliders.push({ x: WELL.x, z: WELL.z, r: 0.95 });
-  const hp = townPoint(0.5, WELL, 2.2); makeVillager(hp.x, hp.z, { kimono: 0xd9483b, obi: 0xfff8ee, hair: 0x2a2238, buns: true, child: true, still: true, name: 'Hana', type: 'hana', mouth: 'smile' });
+  colliders.push({ x: WELL.x, z: WELL.z, r: 0.95 }); townHouseCols.push({ x: WELL.x, z: WELL.z, r: 0.95 });
+  makeVillager(WELL.x + 1.9, WELL.z + 1.0, { kimono: 0xd9483b, obi: 0xfff8ee, hair: 0x2a2238, buns: true, child: true, still: true, name: 'Hana', type: 'hana', mouth: 'smile' });
 }
-// the old storehouse by the village shrine tower, where her mirror ended up
-const MIRROR_AT = V(4, 0, 88.6);
+const HANA_LINES = ['“Grandma says the mountain lady eats children who whistle at night. I don’t whistle.”', '“I saw a little light with fox ears on the path! It waved at me!”', '“If you bring me sweets I’ll tell you a secret. …The secret is I like sweets.”', '“Kenta says he isn’t scared of anything. He screamed at a frog yesterday.”'];
+let hanaI = 0;
+// her mirror, on the top shelf just inside the storehouse door
+const MIRROR_AT = V(STORE.x - 1.5, 0, STORE.z);
 const mirrorIt = (() => {
   const g = new THREE.Group(); placeY(g, MIRROR_AT.x, MIRROR_AT.z); scene.add(g);
   M(new THREE.BoxGeometry(0.8, 0.7, 0.6), mat(0xbdb5c9), 0, 0.35, 0, g);
-  const d = M(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 20), mat(0xc8d8e8, { emissive: 0x6a8aa8, emissiveIntensity: 0.5 }), 0, 0.95, 0, g); d.rotation.x = Math.PI / 2 - 0.3;
+  const d = M(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 20), mat(0xc8d8e8, { emissive: 0x6a8aa8, emissiveIntensity: 0.5 }), 0, 0.95, 0, g); d.rotation.x = Math.PI / 2 - 0.3; d.rotation.z = Math.PI / 2;
   const gl = glow(0xbfe4ff, 1.4, 0.7); gl.position.y = 0.95; g.add(gl);
-  colliders.push({ x: MIRROR_AT.x, z: MIRROR_AT.z, r: 0.5 });
-  return addItem({ type: 'mirror', x: MIRROR_AT.x, z: MIRROR_AT.z, reach: 1.4, obj: g });
+  g.visible = false;
+  return addItem({ type: 'mirror', x: MIRROR_AT.x, z: MIRROR_AT.z, reach: 1.7, obj: g });
 })();
+function openStore() {
+  Q.storeOpen = true; Q.key = false; storeDoor.want = 1; storeDoor.mark.visible = false; mirrorIt.obj.visible = !ART.mirror.got;
+  tone(196, 0.5, 'sawtooth', 0.02); tone(147, 0.6, 'sine', 0.04); toast('The heavy door grinds open. Something glints on the top shelf.'); refreshHUD();
+}
 // the hollow ones: tall, masked, and only you can see them
 const maskTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 160; const x = c.getContext('2d'); x.fillStyle = '#f4f0ea'; x.beginPath(); x.ellipse(64, 80, 58, 76, 0, 0, 7); x.fill(); x.strokeStyle = '#1a1420'; x.lineWidth = 5; x.lineCap = 'round'; for (const s of [-1, 1]) { x.beginPath(); x.arc(64 + s * 24, 74, 14, Math.PI * 1.15, Math.PI * 1.85); x.stroke(); } x.strokeStyle = '#b0202c'; x.lineWidth = 4; x.beginPath(); x.arc(64, 96, 24, Math.PI * 0.2, Math.PI * 0.8); x.stroke(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const hollows = [];
@@ -2585,13 +2968,15 @@ function makeHollow(x, z, sentinel) {
   const h = { g, head, pos: V(x, 0, z), target: V(x, 0, z), wait: R() * 5, sentinel, noticed: 0, face: R() * 6.28, ph: R() * 6 };
   g.position.set(x, heightAt(x, z), z); hollows.push(h); return h;
 }
-makeHollow(MIRROR_AT.x - 1.7, MIRROR_AT.z + 0.6, true); makeHollow(MIRROR_AT.x + 1.7, MIRROR_AT.z + 0.5, true);
-for (let i = 0; i < 4; i++) { const p = townPoint(1.5); makeHollow(p.x, p.z, false); }
+makeHollow(STORE.x - 3.6, STORE.z - 1.9, true); makeHollow(STORE.x - 3.6, STORE.z + 1.9, true);
+hollows.forEach(h => h.face = -Math.PI / 2);
+for (let i = 0; i < 4; i++) { const p = streetPoint(V(0, 0, 80), V(0, 0, 82), 30); makeHollow(p.x, p.z, false); }
 const houseMeshes = houses.flatMap(h => [h.body, h.roof]);
 let staring = false, sawTown = false, sawStare = false;
 function updateTown(dt) {
-  const walk = (o, sp) => { if (o.wait > 0) { o.wait -= dt; return false; } const dx = o.target.x - o.pos.x, dz = o.target.z - o.pos.z, d = Math.hypot(dx, dz); if (d < 0.3) { o.wait = 2 + R() * 5; o.target.copy(townPoint(1.2)); return false; } const st = Math.min(d, sp * dt); o.pos.x += dx / d * st; o.pos.z += dz / d * st; o.face = Math.atan2(dx, dz); return true; };
+  const walk = (o, sp) => { if (o.wait > 0) { o.wait -= dt; return false; } const dx = o.target.x - o.pos.x, dz = o.target.z - o.pos.z, d = Math.hypot(dx, dz); if (d < 0.3) { o.wait = 2 + R() * 5; o.target.copy(streetPoint(o.pos, o.home || o.pos, o.home ? 9 : 14)); return false; } const st = Math.min(d, sp * dt); o.pos.x += dx / d * st; o.pos.z += dz / d * st; o.face = Math.atan2(dx, dz); return true; };
   for (const v of villagers) {
+    if (v.npc) { v.news.visible = npcHasNews(v.npc); if (v.news.visible) v.news.position.y = 2.15 + Math.sin(time * 3 + v.ph) * 0.06; }
     const mv = v.still ? false : walk(v, 1.1);
     if (v.still || v.wait > 0) { const dp = Math.hypot(P.pos.x - v.pos.x, P.pos.z - v.pos.z); if (dp < 4) v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); }
     v.g.position.set(v.pos.x, heightAt(v.pos.x, v.pos.z) + (mv ? Math.abs(Math.sin(time * 8 + v.ph)) * 0.04 : 0), v.pos.z); v.g.rotation.y = lerpAngle(v.g.rotation.y, v.face, 0.1);
@@ -2603,6 +2988,7 @@ function updateTown(dt) {
     h.g.position.set(h.pos.x, heightAt(h.pos.x, h.pos.z) + 0.1 + Math.sin(time * 1.1 + h.ph) * 0.08, h.pos.z); h.g.rotation.y = lerpAngle(h.g.rotation.y, h.face, 0.05);
     h.head.rotation.z = Math.sin(time * 0.7 + h.ph) * 0.18;
   }
+  storeDoor.open = lerp(storeDoor.open, storeDoor.want, 1 - Math.exp(-dt * 1.5)); storeDoor.leaf.position.x = -storeDoor.open * 1.45;
   // don't look at them: whatever sits in the middle of your view, the villagers notice you staring at
   staring = false;
   if (state === 'play') {
@@ -2621,7 +3007,9 @@ function updateTown(dt) {
 function travel(to) {
   if (state !== 'play') return;
   if (to === 'town' && day < townBanDay) return toast('The villagers are still angry with you. Wait until morning.');
-  if (P.holding && (to === 'town' || P.where === 'town')) { const s = P.holding; putDown(); toast(`The ${s.kind.name} wispling hops down. Wisplings won’t leave the mountain.`); }
+  if (to === 'town' && P.holding && Q.thread) P.holding.inTown = true;
+  else if (P.holding && (to === 'town' || P.where === 'town') && !P.holding.inTown) { const s = P.holding; putDown(); toast(Q.thread || level < 3 ? `The ${s.kind.name} wispling hops down. Wisplings won’t leave the mountain.` : `The ${s.kind.name} wispling hops down. They can’t leave the mountain without a red thread charm.`); }
+  const pal = to !== 'town' ? companion() : null;
   const from = P.where;
   state = 'travel'; P.work = null; P.target = null; P.pendingIt = null; keys.clear(); $('fade').style.opacity = 1; tone(to === 'home' || P.where === 'home' ? 330 : 392, 0.5, 'sine', 0.03);
   setTimeout(() => {
@@ -2629,8 +3017,10 @@ function travel(to) {
     else if (to === 'home') { P.where = 'home'; P.pos.set(IN_DOOR.x, 0, IN_DOOR.z - 0.5); yaw = 0; if (!sawHome) { sawHome = true; setTimeout(() => toast(kitchen.done && table.done ? 'Home.' : 'Your cabin. Room for a kitchen by the wall, and a long table for the little ones.'), 700); } }
     else if (from === 'home') { P.where = 'mountain'; P.pos.set(OUT_STEP.x, 0, OUT_STEP.z); yaw = Math.atan2(-(OUT_STEP.x - CABIN.x), -(OUT_STEP.z - CABIN.z)); }
     else { P.where = 'mountain'; P.pos.set(townSign.x - 0.8, 0, townSign.z - 2.2); yaw = 0; }
+    if (pal) { pal.inTown = false; if (!pal.held) { pal.air = null; pal.pos.set(P.pos.x + 0.9, 0, P.pos.z + 0.6); pal._lp.copy(pal.pos); pal.release(); pal.state = 'idle'; } }
+    if (to === 'town' && companion()) { const c = companion(); setTimeout(() => toast(`The red thread glows. The ${c.kind.name} wispling came with you! Nobody else can see them.`), 900); }
     pitch = -0.05; suspicion = 0; state = 'play'; $('fade').style.opacity = 0;
-    if (to === 'town' && !sawTown) { sawTown = true; setTimeout(() => toast('The village. Find the stall, the girl by the well, and the old storehouse by the tower.'), 800); setTimeout(() => toast('Some of the tall ones aren’t people. Don’t look straight at them.'), 4800); }
+    if (to === 'town' && !sawTown) { sawTown = true; setTimeout(() => toast('The village. Find Ume’s stall, Hana by the well, and Jiro at the storehouse by the tower.'), 800); setTimeout(() => toast('Some of the tall ones aren’t people. Don’t look straight at them.'), 4800); }
     refreshHUD();
   }, 900);
 }
@@ -2640,6 +3030,150 @@ function kickOut() {
   travel('mountain');
   setTimeout(() => { toast('They will calm down by morning.'); whisper('They chased me up here too, once.'); }, 1800);
 }
+
+
+// ---------------------------------------------------------------- curious villagers, and how she sees them off
+// Now and then someone from the village creeps up the path to see what the lights are. She walks out to meet them,
+// rises into the air with her eyes burning, and they run all the way home.
+const intruder = { v: null, on: false, next: 150 + Math.random() * 90, state: '', t: 0, seen: 0, scared: 0 };
+{
+  intruder.v = makeVillager(2.2, 24, { kimono: 0x8a6a44, obi: 0x3a3560, hair: 0x3b2a3f, hat: true, bundle: 0xd9c08a, name: 'Villager', type: 'intruder', mouth: 'sad' });
+  villagers.pop(); intruder.v.g.visible = false;
+  intruder.v.news.material = intruder.v.news.material.clone(); intruder.v.news.material.color.set(0xff6a6a);
+}
+const INTRUDER_LINES = ['“H-hello? I only came up for mushrooms…”', '“Is somebody there? Kenta said there was a lady…”', '“The lights! So the stories are true…”'];
+function spawnIntruder() {
+  const v = intruder.v, x = townSign.x + (R() - 0.5) * 1.5, z = townSign.z + 0.5;
+  v.pos.set(x, 0, z); v.target.set((R() - 0.5) * 12, 0, 4 + R() * 8); v.wait = 0; v.g.visible = true; v.news.visible = false;
+  Object.assign(intruder, { on: true, state: 'climb', t: 0 }); intruder.seen++;
+  if (intruder.seen === 1) { toast('Someone is creeping up the path from the village…'); setTimeout(() => whisper('A visitor. How brave. How foolish.'), 1500); }
+}
+function scareIntruder() {
+  intruder.state = 'flee'; intruder.t = 0; intruder.scared++; L.scareT = 2.4;
+  const v = intruder.v; v.news.visible = true; v.target.set(townSign.x, 0, townSign.z + 1.5);
+  setLadyFace('angry', 2.5); rumble(0.5); shake = Math.max(shake, 0.25);
+  burst(V(L.pos.x, heightAt(L.pos.x, L.pos.z) + 2, L.pos.z), 0x9a4aff, 4);
+  const vol = earVol(L.pos); if (vol > 0.03) { tone(110, 0.8, 'sawtooth', 0.03 * vol); tone(82, 1.0, 'sine', 0.05 * vol); }
+  if (Math.hypot(P.pos.x - v.pos.x, P.pos.z - v.pos.z) < 18) { floatText(v.pos, 'Aaah!', '#ffd0d0'); toast('“Aaah! The mountain lady!” The villager runs all the way home.'); }
+  if (intruder.scared === 1 || R() < 0.5) setTimeout(() => whisper(['Go home. This mountain is not yours anymore.', 'Run. Run the way they made me walk.', 'Back down the hill. Tell them what you saw.', 'Nobody takes anything from this mountain again.'][intruder.scared % 4]), 900);
+  for (const s of spirits) if (!s.held && !inHome(s.pos.x, s.pos.z) && Math.hypot(s.pos.x - v.pos.x, s.pos.z - v.pos.z) < 16 && R() < 0.6) { s.setMoods([[2.5, { happy: 1, aa: 0.6 }]]); setTimeout(() => giggle(s, 0.6), 300 + R() * 600); }
+}
+function updateIntruder(dt) {
+  const v = intruder.v;
+  if (!intruder.on) {
+    if (state === 'play' && youOnMountain() && !evil.active && L.mode !== 'thank' && cabin.built) { intruder.next -= dt; if (intruder.next <= 0) spawnIntruder(); }
+    return;
+  }
+  intruder.t += dt;
+  let mv = false;
+  const dx = v.target.x - v.pos.x, dz = v.target.z - v.pos.z, d = Math.hypot(dx, dz);
+  if (intruder.state === 'climb' || intruder.state === 'look') {
+    if (d > 0.4) { const st = Math.min(d, 1.0 * dt); v.pos.x += dx / d * st; v.pos.z += dz / d * st; v.face = Math.atan2(dx, dz); mv = true; }
+    else { intruder.state = 'look'; v.wait -= dt; v.face += Math.sin(intruder.t * 1.3) * dt; if (v.wait <= 0) { v.wait = 3 + R() * 3; v.target.set((R() - 0.5) * 14, 0, 2 + R() * 10); } }
+    if (intruder.t > 60) scareIntruder();
+  } else if (intruder.state === 'flee') {
+    if (d > 0.5) { const st = Math.min(d, 4.6 * dt); v.pos.x += dx / d * st; v.pos.z += dz / d * st; v.face = Math.atan2(dx, dz); mv = true; }
+    else { intruder.on = false; v.g.visible = false; intruder.next = 170 + R() * 170; }
+  }
+  v.g.position.set(v.pos.x, heightAt(v.pos.x, v.pos.z) + (mv ? Math.abs(Math.sin(time * (intruder.state === 'flee' ? 16 : 8) + v.ph)) * 0.05 : 0), v.pos.z);
+  v.g.rotation.y = lerpAngle(v.g.rotation.y, v.face, 0.15);
+  if (v.news.visible) v.news.position.y = 2.15 + Math.abs(Math.sin(time * 9)) * 0.1;
+}
+
+// ---------------------------------------------------------------- chapter three: a house full of little ones
+// Her shrine is whole and she stops hiding. You grow your cabin into a shataku, a big family house, in three steps.
+let shatakuStage = 0;
+const SHATAKU = [
+  { title: 'East wing', sub: 'A second room on the east side, with a window for the morning sun.', need: { plans: 1, wood: 12 } },
+  { title: 'West wing', sub: 'Another room on the west side, for sleeping in rows.', need: { wood: 14, coins: 6 } },
+  { title: 'Upper floor and veranda', sub: 'A loft with its own roof, and a long veranda across the front with lanterns.', need: { wood: 18, coins: 8, treats: 2 } },
+];
+const shataku = (() => {
+  const host = cabin.obj, woodM = mat(0xc08a5b), dark = mat(0x5b4a63), beam = mat(0x8a5f3e), stone = mat(0x9b7a64), winM = cabin.win.material, paper = mat(0xfff4e0);
+  const wing = sx => {
+    const g = new THREE.Group(); host.add(g); g.visible = false; const cx = sx * 3.75;
+    M(new THREE.BoxGeometry(3.9, 0.35, 3.6), stone, cx, 0.17, 0, g);
+    M(new THREE.BoxGeometry(3.6, 2.0, 3.0), woodM, cx, 1.35, 0, g);
+    for (const ex of [-1.75, 1.75]) for (const ez of [-1.45, 1.45]) M(new THREE.BoxGeometry(0.18, 2.0, 0.18), beam, cx + ex, 1.35, ez, g);
+    for (const ez of [-1.52, 1.52]) M(new THREE.BoxGeometry(3.66, 0.14, 0.08), beam, cx, 2.3, ez, g);
+    M(new THREE.BoxGeometry(1.0, 0.7, 0.06), winM, cx, 1.55, 1.52, g); M(new THREE.BoxGeometry(1.0, 0.7, 0.06), winM, cx + sx * 0.8, 1.55, -1.52, g);
+    for (const lx of [-0.25, 0.25]) M(new THREE.BoxGeometry(0.05, 0.72, 0.08), beam, cx + lx, 1.55, 1.54, g);
+    M(new THREE.BoxGeometry(0.06, 0.6, 0.8), winM, cx + sx * 1.82, 1.5, 0, g);
+    // closed gable roof, ridge running east-west, tucked under the main roof
+    const rise = 0.95, hz = 1.95, k = rise / 1.5, y0 = 2.35, t = 0.2;
+    const shape = [[-hz, y0 + rise - hz * k], [0, y0 + rise], [hz, y0 + rise - hz * k], [hz, y0 + rise - hz * k + t], [0, y0 + rise + t], [-hz, y0 + rise - hz * k + t]];
+    M(prismX(shape, 4.0), dark, cx + sx * 0.1, 0, 0, g);
+    M(prismX([[-1.5, y0 - 0.01], [1.5, y0 - 0.01], [0, y0 + rise]], 3.6), woodM, cx, 0, 0, g);
+    const ridge = M(new THREE.CylinderGeometry(0.11, 0.11, 4.1, 8), dark, cx + sx * 0.1, y0 + rise + t + 0.02, 0, g); ridge.rotation.z = Math.PI / 2;
+    return g;
+  };
+  const east = wing(1), west = wing(-1);
+  const upper = new THREE.Group(); host.add(upper); upper.visible = false;
+  M(new THREE.BoxGeometry(3.6, 1.7, 3.0), woodM, 0, 3.4, 0, upper);
+  for (const ex of [-1.75, 1.75]) for (const ez of [-1.45, 1.45]) M(new THREE.BoxGeometry(0.18, 1.7, 0.18), beam, ex, 3.4, ez, upper);
+  M(new THREE.BoxGeometry(3.9, 0.2, 3.4), beam, 0, 2.6, 0, upper);
+  for (const wx of [-0.9, 0.9]) M(new THREE.BoxGeometry(0.9, 0.6, 0.06), winM, wx, 3.5, 1.52, upper);
+  M(new THREE.BoxGeometry(1.6, 0.6, 0.06), winM, 0, 3.5, -1.52, upper);
+  { const rise = 1.25, hz = 2.35, k = rise / 1.5, y0 = 4.25, t = 0.24;
+    M(prismX([[-hz, y0 + rise - hz * k], [0, y0 + rise], [hz, y0 + rise - hz * k], [hz, y0 + rise - hz * k + t], [0, y0 + rise + t], [-hz, y0 + rise - hz * k + t]], 4.9), dark, 0, 0, 0, upper);
+    M(prismX([[-1.5, y0 - 0.01], [1.5, y0 - 0.01], [0, y0 + rise]], 3.6), woodM, 0, 0, 0, upper);
+    const ridge = M(new THREE.CylinderGeometry(0.14, 0.14, 5.1, 8), dark, 0, y0 + rise + t + 0.03, 0, upper); ridge.rotation.z = Math.PI / 2;
+    for (const sx of [-1, 1]) M(new THREE.BoxGeometry(0.34, 0.4, 0.5), dark, sx * 2.55, y0 + rise + t + 0.1, 0, upper).rotation.z = -sx * 0.25; }
+  // veranda across the whole front, with a lean-to roof and lanterns
+  M(new THREE.BoxGeometry(11.0, 0.12, 0.75), beam, 0, 0.3, 2.0, upper);
+  for (let i = 0; i < 7; i++) { const x = -5.3 + i * (10.6 / 6); M(new THREE.BoxGeometry(0.12, 0.3, 0.12), beam, x, 0.12, 2.3, upper); if (Math.abs(x - 0.6) > 0.8) M(new THREE.BoxGeometry(0.12, 2.05, 0.12), beam, x, 1.33, 2.34, upper); }
+  const lean = M(new THREE.BoxGeometry(11.4, 0.1, 1.2), dark, 0, 2.42, 2.05, upper); lean.rotation.x = 0.28;
+  for (const x of [-4.4, 4.4, -0.6, 1.8]) { const l = M(new THREE.BoxGeometry(0.24, 0.32, 0.24), paper, x, 1.95, 2.3, upper); const gl = glow(0xffc88a, 1.1, 0.5); gl.position.set(x, 1.95, 2.3); upper.add(gl); }
+  // stepping stones and a little fence for the garden
+  for (let i = 0; i < 4; i++) M(new THREE.CylinderGeometry(0.32, 0.36, 0.1, 9), stone, 0.6 + Math.sin(i) * 0.2, 0.05, 3.0 + i * 0.8, upper);
+  for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) M(new THREE.BoxGeometry(0.08, 0.7, 0.08), beam, sx * (2.2 + i * 1.0), 0.35, 3.3, upper);
+  for (const sx of [-1, 1]) M(new THREE.BoxGeometry(3.2, 0.06, 0.05), beam, sx * 3.7, 0.55, 3.3, upper);
+  // where you start: stakes, string, and a plan board
+  const mark = new THREE.Group(); host.add(mark); mark.visible = false; mark.position.set(3.6, 0, 2.6);
+  for (const [sx, sz] of [[-0.6, -0.4], [0.6, -0.4], [-0.6, 0.4], [0.6, 0.4]]) M(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 5), mat(0xd9483b), sx, 0.5, sz, mark);
+  M(new THREE.CylinderGeometry(0.05, 0.05, 1.3, 5), beam, 0, 0.65, 0.6, mark); const board = M(new THREE.BoxGeometry(0.8, 0.55, 0.05), paper, 0, 1.25, 0.62, mark); board.rotation.x = -0.2;
+  const wp = cabinPt(3.6, 2.6), it = addItem({ type: 'shataku', x: wp.x, z: wp.z, reach: 1.3, obj: mark });
+  return { east, west, upper, mark, it };
+})();
+function applyShataku() {
+  shataku.east.visible = shatakuStage >= 1; shataku.west.visible = shatakuStage >= 2; shataku.upper.visible = shatakuStage >= 3;
+  cabin.roofG.visible = cabin.built && shatakuStage < 3; shataku.mark.visible = level >= 3 && shatakuStage < 3;
+  const col = (lx, r) => { const p = cabinPt(lx, 0); if (!colliders.some(c => c.shat === lx)) colliders.push({ x: p.x, z: p.z, r, shat: lx }); };
+  if (shatakuStage >= 1) { col(3.0, 1.7); col(4.6, 1.7); }
+  if (shatakuStage >= 2) { col(-3.0, 1.7); col(-4.6, 1.7); }
+}
+const haveRes = k => k === 'plans' ? (Q.plans ? 1 : 0) : W[k];
+function openShataku() {
+  const st = SHATAKU[shatakuStage]; if (!st) return;
+  const need = Object.entries(st.need), ok = () => need.every(([k, n]) => haveRes(k) >= n);
+  const cost = need.map(([k, n]) => k === 'plans' ? 'Tokubei’s plans' : `${n} ${k}`).join(' · ');
+  const missing = !Q.plans && st.need.plans ? 'You need house plans first. Tokubei, the old carpenter in the village, has some.' : `You have ${W.wood} wood, ${W.coins} coins, ${W.treats} treats.`;
+  openTrade(`Build the shataku · step ${shatakuStage + 1} of 3`, `A shataku: one big house for you and all the little ones.\n\n${missing}`, [
+    { label: st.title, sub: st.sub, cost, big: true, ok, buy: () => { for (const [k, n] of need) if (k !== 'plans') W[k] -= n; buildShataku(); closeTrade(); } },
+  ]);
+}
+function buildShataku() {
+  shatakuStage++; applyShataku(); chime(); setTimeout(chime, 300); burst(V(CABIN.x, 2.5, CABIN.z), 0xffe0a0, 6); rumble(0.3);
+  for (const s of spirits) if (!s.held && !inHome(s.pos.x, s.pos.z) && Math.hypot(s.pos.x - CABIN.x, s.pos.z - CABIN.z) < 22) { s.setMoods([[3, { happy: 1, aa: 0.6 }]]); if (R() < 0.6) floatText(s.pos, ['yay!', '♪', 'big house!'][Math.floor(R() * 3)], '#ffd0dc'); }
+  whisper(['A room for the morning. They will wake up in the sun.', 'Rows of futons. I used to sleep in rows like that, with my sisters.', 'A house with a lantern on the porch. Someone is always home.'][shatakuStage - 1]);
+  refreshHUD();
+  if (shatakuStage >= SHATAKU.length) setTimeout(() => { if (state === 'play') startWin(); }, 4500);
+}
+function startChapter3() {
+  if (state !== 'play') return; state = 'paused'; freeMouse(); $('chapter3').hidden = false; setTimeout(() => $('chapter3Btn').focus(), 30);
+}
+$('chapter3Btn').onclick = () => {
+  $('chapter3').hidden = true; level = 3; state = 'play'; L.mode = 'near'; L.hide = null; L.fleeing = false; L.wait = 0;
+  applyShataku(); canvas.focus(); refreshHUD(); chime();
+  toast('She walks beside you now. Tap her to talk.');
+  setTimeout(() => whisper('No more hiding. I am tired of trees.'), 2500);
+  setTimeout(() => toast('Build your cabin into a shataku. Start at the plan board by your cabin.'), 6000);
+};
+// in chapter three she will talk to you
+const LADY_TALK = ['My name was Rin. Nobody has said it in a hundred years. You can say it.', 'My father made bells. That is why they named me for one.', 'The rope was too tight. I sang so I would not cry. The little ones remember the song.', 'I was so angry, for so long. It is quieter now. Thank you for that.', 'When the house is done, will you leave a lantern lit for me?', 'The village is not wicked. Only frightened. I was frightened too.'];
+let ladyTalkI = 0;
+const ladyIt = addItem({ type: 'lady', x: 0, z: 0, pos: L.pos, reach: 1.2, obj: (() => { const o = new THREE.Object3D(); scene.add(o); o.visible = false; return o; })() });
+function talkLady() { L.wait = 4; L.target.copy(L.pos); setLadyFace(ladyTalkI % 3 === 2 ? 'shy' : 'happy', 3); whisper(LADY_TALK[ladyTalkI++ % LADY_TALK.length]); tone(784, 0.3, 'sine', 0.03); }
 
 // ---------------------------------------------------------------- endings
 function startEruption() {
@@ -2670,7 +3204,7 @@ function igniteHouse(h, at) {
 }
 function startWin() {
   wonOnce = true; if (L.carrying) ladyPutDown(); state = 'won'; endT = 0; P.work = null; $('prompt').classList.remove('on');
-  whisper('My bell. My mirror. My house. I can rest now. Thank you, little outcast.'); chime(); setTimeout(chime, 400);
+  whisper(level >= 3 ? 'A big house, full of little ones, with a lantern on the porch. I can rest now. Thank you, little outcast.' : 'My bell. My mirror. My house. I can rest now. Thank you, little outcast.'); chime(); setTimeout(chime, 400);
   camTargetPos = V(3, 5, -1); camTargetLook = V(0, 3.5, -12);
 }
 function updateWin(dt) {
@@ -2688,7 +3222,7 @@ function showEnd(won) {
   freeMouse(); const e = $('end'); e.hidden = false;
   if (won) {
     $('endTitle').textContent = 'The mountain hums again'; $('endTitle').style.color = 'var(--dusk)';
-    $('endText').textContent = `By day ${day} her shrine is whole again: a new rope, a bell that rings, her mirror and her hairpin home. ${spirits.length} wisplings sleep warm in huts you built. She bows to you, very gently. Then she turns to look down at the village, and smiles.`;
+    $('endText').textContent = level >= 3 ? `By day ${day} her shrine is whole and your cabin has grown into a shataku, with two wings, a loft and a veranda full of lanterns. ${spirits.length} wisplings sleep in rows under one roof. Rin bows to you, very gently. Then she turns to look down at the village, and smiles.` : `By day ${day} her shrine is whole again: a new rope, a bell that rings, her mirror and her hairpin home. ${spirits.length} wisplings sleep warm in huts you built. She bows to you, very gently. Then she turns to look down at the village, and smiles.`;
     $('keepBtn').hidden = false;
   } else {
     $('endTitle').textContent = 'The mountain remembers'; $('endTitle').style.color = '';
@@ -2698,7 +3232,7 @@ function showEnd(won) {
   $('againBtn').focus();
 }
 $('againBtn').onclick = () => location.reload();
-$('keepBtn').onclick = () => { $('end').hidden = true; state = 'play'; L.pos.set(0, 0, -12); L.target.set(0, 0, -12); whisper('Stay with them. I have somewhere to be soon.'); };
+$('keepBtn').onclick = () => { $('end').hidden = true; state = 'play'; L.pos.set(0, 0, -12); L.target.set(0, 0, -12); whisper(level >= 3 ? 'Stay. I will walk with you a while longer.' : 'Stay with them. I have somewhere to be soon.'); };
 let started = false;
 $('startBtn').onclick = () => {
   audioOn(); $('title').hidden = true; state = 'play'; canvas.focus();
@@ -2741,7 +3275,96 @@ function openChars() { freeMouse(); keys.clear(); refreshCharUI(); $('charModal'
 $('charBtn').onclick = openChars; $('charBtn2').onclick = openChars;
 $('charClose').onclick = () => { $('charModal').hidden = true; };
 $('charModal').addEventListener('pointerdown', e => { if (e.target === $('charModal')) $('charModal').hidden = true; });
-loadSavedModels();
+// ---------------------------------------------------------------- you: woman or man, and a simple character creator
+// The two player models carry every option as its own mesh (material prefix e1_/m2_/h3_/o1_...). We show one of each
+// and tint hair, eyes and the main garment. Saved in this browser.
+const LOOK_OPTS = {
+  e: ['Round', 'Sharp', 'Gentle'], m: ['Smile', 'Open', 'Cat'],
+  h: { f: ['Long', 'Ponytail', 'Bob'], m: ['Short', 'Tied back', 'Shaggy'] }, o: ['Shrine', 'Yukata', 'Traveller'],
+};
+const LOOK_COLS = {
+  hair: ['#4a3040', '#2e2a3a', '#8a5a3c', '#d9b07a', '#f2f0f4', '#c9505a', '#5a7ab8'],
+  eyes: ['#b8743a', '#4f6f9a', '#5a8a4a', '#8a4ab0', '#c9343b', '#3a2a28'],
+  cloth: ['#3a5aa8', '#c9343b', '#5f7d62', '#6c5a8f', '#e9eef8', '#e8a0b8', '#4a5a7a', '#5a4a40'],
+};
+const LOOK_MAIN = { 1: 'o1_bottom', 2: 'o2_robe', 3: 'o3_jacket' };
+const LOOK = Object.assign({ sex: 'f', e: 1, m: 1, h: 1, o: 1, hair: '#4a3040', eyes: '#b8743a', cloth: '#3a5aa8' }, (() => { try { return JSON.parse(localStorage.getItem('ash-look') || '{}'); } catch (e) { return {}; } })());
+const saveLook = () => { try { localStorage.setItem('ash-look', JSON.stringify(LOOK)); } catch (e) { } };
+const lookRole = () => LOOK.sex === 'm' ? 'player-male' : 'player-female';
+function dressRoot(root) {
+  if (!root) return;
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) {
+      const n = (m.name || '').replace(/ \(Outline\)$/, ''), k = n.match(/^([ehmo])(\d)_/);
+      if (k) o.visible = LOOK[k[1]] === +k[2];
+      const tint = /_hair$/.test(n) ? LOOK.hair : /_iris$/.test(n) ? LOOK.eyes : n === LOOK_MAIN[LOOK.o] ? LOOK.cloth : null;
+      if (tint) { if (m.color) m.color.set(tint); if (m.shadeColorFactor) m.shadeColorFactor.set(tint).multiplyScalar(0.7); }
+    }
+  });
+}
+function dressPlayer() { if (playerVRM && vrmProto.player && vrmProto.player.from !== 'browser') dressRoot(playerVRM.root); }
+function applyPlayerLook() {
+  const p = vrmProto[lookRole()]; if (!p) return;
+  if (vrmProto.player && vrmProto.player.from === 'browser') return; // your own VRoid model wins
+  if (vrmProto.player !== p) { vrmProto.player = p; applySingle('player'); }
+  dressPlayer(); lookPreview.reset();
+}
+const lookPreview = (() => {
+  let r = null, scene, cam, inst = null, forRole = '', raf = 0, t0 = 0;
+  const ensure = () => {
+    if (r) return true;
+    try { r = new THREE.WebGLRenderer({ canvas: $('lookCanvas'), antialias: true, alpha: true }); } catch (e) { return false; }
+    r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(240, 320, false); r.outputColorSpace = THREE.SRGBColorSpace;
+    scene = new THREE.Scene(); scene.add(new THREE.AmbientLight(0xffffff, 1.6)); const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(1, 2, 3); scene.add(dl);
+    cam = new THREE.PerspectiveCamera(24, 240 / 320, 0.05, 30); return true;
+  };
+  const build = () => {
+    const p = vrmProto[lookRole()]; if (!p) return;
+    if (inst) { scene.remove(inst.wrap); inst = null; }
+    inst = makeVRMInstance(p, false); scene.add(inst.wrap); forRole = lookRole();
+    // the clone shares materials with your in-game model, so tints match; visibility is per clone
+    dressRoot(inst.root);
+  };
+  const frame = () => {
+    if ($('lookModal').hidden) { raf = 0; return; }
+    raf = requestAnimationFrame(frame);
+    if (!inst || forRole !== lookRole()) build(); if (!inst) return;
+    const t = performance.now() / 1000; poseVRM(inst, { mood: {} }, 1 / 60);
+    inst.wrap.rotation.y = Math.sin(t * 0.6) * 0.5;
+    const zoom = lookPreview.zoom || 0, h = 1.85;
+    cam.position.set(0, lerp(h * 0.55, h * 0.86, zoom), lerp(6.2, 1.25, zoom)); cam.lookAt(0, lerp(h * 0.5, h * 0.86, zoom), 0);
+    r.render(scene, cam);
+  };
+  return { zoom: 0.35, open() { if (ensure() && !raf) { build(); frame(); } }, reset() { if (inst) dressRoot(inst.root); forRole = ''; } };
+})();
+function lookRow(label, key, names) {
+  const row = document.createElement('div'); row.className = 'lrow';
+  row.innerHTML = `<b></b><button class="arr" aria-label="Previous">◀</button><span class="val"></span><button class="arr" aria-label="Next">▶</button>`;
+  row.querySelector('b').textContent = label;
+  const show = () => row.querySelector('.val').textContent = (typeof names === 'function' ? names() : names)[LOOK[key] - 1];
+  const step = d => { LOOK[key] = (LOOK[key] - 1 + d + 3) % 3 + 1; show(); lookChanged(key === 'e' || key === 'm' ? 1 : key === 'h' ? 0.6 : 0.2); };
+  const [a, b] = row.querySelectorAll('button'); a.onclick = () => step(-1); b.onclick = () => step(1); show(); return row;
+}
+function swatchRow(label, key) {
+  const row = document.createElement('div'); row.className = 'lrow'; row.innerHTML = '<b></b><div class="swatches"></div>'; row.querySelector('b').textContent = label;
+  const box = row.querySelector('.swatches');
+  for (const c of LOOK_COLS[key]) { const b = document.createElement('button'); b.style.background = c; b.setAttribute('aria-label', label + ' ' + c); b.setAttribute('aria-pressed', LOOK[key] === c); b.onclick = () => { LOOK[key] = c; box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); lookChanged(key === 'eyes' ? 1 : key === 'hair' ? 0.6 : 0.2); }; box.append(b); }
+  return row;
+}
+function lookChanged(zoom) { saveLook(); if (zoom !== undefined) lookPreview.zoom = zoom; applyPlayerLook(); lookPreview.reset(); }
+function buildLookRows() {
+  const box = $('lookRows'); box.innerHTML = '';
+  box.append(lookRow('Eyes', 'e', LOOK_OPTS.e), swatchRow('Eye colour', 'eyes'), lookRow('Mouth', 'm', LOOK_OPTS.m), lookRow('Hair', 'h', () => LOOK_OPTS.h[LOOK.sex]), swatchRow('Hair colour', 'hair'), lookRow('Clothes', 'o', LOOK_OPTS.o), swatchRow('Cloth colour', 'cloth'));
+}
+function setSex(sx) { LOOK.sex = sx; saveLook(); for (const [a, b] of [['pickF', 'pickM'], ['pickF2', 'pickM2']]) { $(a).setAttribute('aria-pressed', sx === 'f'); $(b).setAttribute('aria-pressed', sx === 'm'); } applyPlayerLook(); if (!$('lookModal').hidden) buildLookRows(); }
+$('pickF').onclick = $('pickF2').onclick = () => setSex('f'); $('pickM').onclick = $('pickM2').onclick = () => setSex('m');
+function openLook() { buildLookRows(); $('lookModal').hidden = false; lookPreview.zoom = 0.35; lookPreview.open(); setTimeout(() => $('lookDone').focus(), 30); }
+$('lookBtn').onclick = openLook; $('lookBtn2').onclick = () => { $('charModal').hidden = true; openLook(); };
+$('lookDone').onclick = $('lookClose').onclick = () => { $('lookModal').hidden = true; };
+setSex(LOOK.sex);
+
+loadSavedModels().then(() => applyPlayerLook());
 
 // initial placement
 P.pos.set(3, 0, 4); player.g.position.set(3, heightAt(3, 4), 4);
@@ -2757,6 +3380,6 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite };
+window.__shrine = { LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite };
 })();
 </script>

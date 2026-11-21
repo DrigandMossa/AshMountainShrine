@@ -1,9 +1,11 @@
 {
-  "w-fox": "models/wispling-fox.vrm",
-  "w-cat": "models/wispling-cat.vrm",
-  "w-bunny": "models/wispling-bunny.vrm",
-  "w-tanuki": "models/wispling-tanuki.vrm",
-  "w-wolf": "models/wispling-wolf.vrm",
-  "w-deer": "models/wispling-deer.vrm",
-  "lady": "models/shrine-lady.vrm"
+  "w-fox": "models/wispling-fox.vrm.b64.txt",
+  "w-cat": "models/wispling-cat.vrm.b64.txt",
+  "w-bunny": "models/wispling-bunny.vrm.b64.txt",
+  "w-tanuki": "models/wispling-tanuki.vrm.b64.txt",
+  "w-wolf": "models/wispling-wolf.vrm.b64.txt",
+  "w-deer": "models/wispling-deer.vrm.b64.txt",
+  "lady": "models/shrine-lady.vrm.b64.txt",
+  "player-female": "models/player-female.vrm",
+  "player-male": "models/player-male.vrm"
 }

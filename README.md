@@ -14,6 +14,14 @@ Controls: WASD/arrows to move, Shift to run, mouse to look (click to lock), E or
 
 **At home:** mend your cabin and step inside to build a kitchen, where wisplings set to *Cook treats* turn food into dango, and a long dinner table. Once the table exists, the wisplings eat there once a day at sunset: they gather and drum on the table until you serve them. Now and then an evil spirit rises at the edge of the meadow, and the lady (whose mask now shows how she feels) goes out to drive it off.
 
+**The village:** level streets with cobbled paths in the style of a Zelda town: a gate, a main street to the shrine tower, a round plaza with the well, curving lanes and a stepping-stone path to every door. Ten villagers have names, a piece of the story of Rin (the girl the village gave to the mountain), and lines they cycle through. Some hold quests: Jiro's storehouse key needs Fuyu's prayer slip; Tokubei's house plans need his pipe back from Kenta; Oharu's red thread charm needs silk from Mitsu. A gold "!" marks anyone with something new for you.
+
+**Her, walking:** the shrine lady walks on the ground and only rises into the air to fight evil spirits or to frighten villagers who creep up the mountain path.
+
+**Chapter three:** once her shrine is whole she stops hiding and walks with you (tap her to talk). Grow your cabin into a *shataku* in three steps (east wing, west wing, upper floor and veranda) to reach the ending. With the red thread charm, carry a wispling to the village path and they come along, unseen by everyone except Hana.
+
+**You:** play as a woman or a man, built in the same body style as the lady (`models/player-female.vrm`, `models/player-male.vrm`). The title screen has a simple character creator: three eyes, three mouths, three hair styles and three outfits, plus hair, eye and cloth colours. The choice is saved in the browser.
+
 ## Layout
 
 | Path | What it is |
