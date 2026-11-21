@@ -5,7 +5,8 @@ A cozy-but-eerie prototype. You are an outcast on a mountain, cursed by the veng
 ## Play
 
 - **In a browser:** open `index.html` from a local web server (for example `python3 -m http.server`, then visit http://localhost:8000). It loads Three.js and three-vrm from jsDelivr. If you open the file directly, the built-in VRM models in `models/` won't load and the game falls back to its simple shapes.
-- **Desktop app (offline):** download a build from the Releases page, or build one yourself (see below).
+- **Windows (offline):** download [`builds/AshMountainShrine-Windows-x64.zip`](builds/AshMountainShrine-Windows-x64.zip), unzip it, and double-click *Ash Mountain Shrine.exe*. It's unsigned, so click "More info", then "Run anyway" if Windows warns you. To fit GitHub's 100 MB file limit, this build keeps only the English language pack and leaves out Chromium's software renderer, so it needs a working graphics driver.
+- **Mac and Linux:** build them yourself (see below).
 
 Controls: WASD/arrows to move, mouse to look (click to lock), E or click to act, Space to jump, Esc to free the mouse. On phones, use the left side to move and the right side to look.
 
