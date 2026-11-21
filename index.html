@@ -1156,7 +1156,7 @@ const lady = (() => {
   const proc = g.children.filter(c => !orbs.includes(c));
   return { g, mats, orbs, arms, head, eyeGlows, proc, opacity: 0 };
 })();
-function setLadyOpacity(o) { lady.opacity = o; lady.g.visible = o > 0.01; lady.mats.forEach(m => { m.opacity = o; if (m.uniforms && m.uniforms.opacity) m.uniforms.opacity.value = o; m.depthWrite = m.userData.vrm ? true : o > 0.95; }); lady.orbs.forEach(s => s.material.opacity = o * 0.9); lady.eyeGlows.forEach(s => s.material.opacity = o * (0.4 + clamp((wrath - 40) / 60, 0, 1) * 0.6)); }
+function setLadyOpacity(o) { lady.opacity = o; lady.g.visible = o > 0.01; lady.mats.forEach(m => { m.opacity = o; const tr = o < 0.995; if (m.transparent !== tr) { m.transparent = tr; m.needsUpdate = true; } if (m.uniforms && m.uniforms.opacity) m.uniforms.opacity.value = o; m.depthWrite = m.userData.vrm ? true : o > 0.95; }); lady.orbs.forEach(s => s.material.opacity = o * 0.9); lady.eyeGlows.forEach(s => s.material.opacity = o * (0.4 + clamp((wrath - 40) / 60, 0, 1) * 0.6)); }
 
 // ---------------------------------------------------------------- state
 const W = { wood: 2, food: 3, coins: 3, treats: 1 };
@@ -1628,8 +1628,8 @@ function ladyPutDown() {
 function updateLady(dt) {
   if (state === 'erupting' || state === 'won') return;
   const heat = clamp((wrath - 40) / 60, 0, 1);
-  // more solid at night and when she is angry; a faint flicker always
-  const want = (0.5 + night * 0.3 + heat * 0.2) * (0.92 + Math.sin(time * 7) * 0.05 * Math.sin(time * 2.3));
+  // fully solid (Drig's choice); she only fades out for the endings
+  const want = 1;
   setLadyOpacity(lerp(lady.opacity, state === 'title' || state === 'play' || state === 'paused' || state === 'resting' ? want : 0, 0.05));
   let moving = false;
   if (state === 'play') {
