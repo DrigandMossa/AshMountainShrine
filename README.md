@@ -8,7 +8,9 @@ A cozy-but-eerie prototype. You are an outcast on a mountain, cursed by the veng
 - **Windows (offline):** download [`builds/AshMountainShrine-Windows-x64.zip`](builds/AshMountainShrine-Windows-x64.zip), unzip it, and double-click *Ash Mountain Shrine.exe*. It's unsigned, so click "More info", then "Run anyway" if Windows warns you. To fit GitHub's 100 MB file limit, this build keeps only the English language pack and leaves out Chromium's software renderer, so it needs a working graphics driver.
 - **Mac and Linux:** build them yourself (see below).
 
-Controls: WASD/arrows to move, mouse to look (click to lock), E or click to act, Space to jump, Esc to free the mouse. On phones, use the left side to move and the right side to look.
+Controls: WASD/arrows to move, Shift to run, mouse to look (click to lock), E or click to act, Space to jump, Q or right-click to toss a wispling you're holding, Esc to free the mouse. On phones, use the left side to move (push all the way to run) and the right side to look.
+
+**Chapter one:** wake five wisplings and give each a bed. **Chapter two:** she gives you her spirit axe and follows you from the trees. Restore her shrine with five lost artifacts from the mountain and the village below, where you must not stare at the hollow ones.
 
 ## Layout
 

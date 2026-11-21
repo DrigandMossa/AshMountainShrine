@@ -117,6 +117,28 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
 #end h1{color:var(--ember)}
 #fade{position:fixed;inset:0;background:#0d0a18;opacity:0;pointer-events:none;transition:opacity .8s;z-index:15}
 
+.chip.art{font-size:12px;padding:3px 9px}
+#susp{top:calc(env(safe-area-inset-top,0px) + 72px);left:50%;transform:translateX(-50%);width:min(280px,40vw);text-align:center;background:rgba(34,28,64,.55);border-radius:12px;padding:5px 10px 8px;opacity:0;transition:opacity .4s}
+#susp.on{opacity:1}
+#susp .lab{font-size:12px;font-weight:700;color:var(--paper);letter-spacing:.06em;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+#susp .bar{margin-top:3px;height:9px;border-radius:999px;background:rgba(34,28,64,.55);border:1.5px solid rgba(255,248,243,.6);overflow:hidden}
+#suspFill{display:block;height:100%;width:0%;background:linear-gradient(90deg,#f2c45a,var(--ember));border-radius:999px}
+#cross.bad{border-color:var(--ember);background:rgba(217,72,59,.6);transform:scale(1.7)}
+#stare{position:fixed;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 120px 30px rgba(120,10,30,.75);opacity:0;transition:opacity .25s}
+#tossBtn{display:none;pointer-events:auto;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 324px);width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,248,243,.8);background:rgba(217,72,59,.45);color:var(--paper);font-weight:900;font-size:13px;touch-action:none}
+@media (pointer:coarse){#tossBtn.on{display:block}}
+.quests{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px}
+.quests li{font-size:12px;color:var(--ink);line-height:1.35}
+.quests li.done{color:var(--moss);text-decoration:line-through}
+#goal .quests li b{display:inline;color:inherit;text-transform:none;font-size:12px;letter-spacing:0}
+.quests li i{font-style:normal;color:var(--dusk)}
+.req{list-style:none;padding:0;margin:0 0 12px;display:grid;gap:3px;font-size:13px}
+.req li.ok{color:var(--moss)}
+.req li.no{color:var(--ember)}
+#restoreBox{border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
+#restoreBox h4{margin:0 0 4px;font-size:15px}
+#chapter h1{color:var(--dusk)}
+body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none!important}
 @media (max-width:1150px){.chip small{display:none}}
 @media (max-width:860px){
   #res{padding:8px 9px;max-width:calc(50vw - 24px)}
@@ -150,6 +172,7 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
     <div class="chip" title="Treats"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="20" y2="3" stroke="#8a5a44" stroke-width="1.8"/><circle cx="8.5" cy="16" r="3.4" fill="#a9dca4" stroke="#2a2238" stroke-width="1.3"/><circle cx="12" cy="12" r="3.4" fill="#fff" stroke="#2a2238" stroke-width="1.3"/><circle cx="15.5" cy="8" r="3.4" fill="#f3a6bd" stroke="#2a2238" stroke-width="1.3"/></svg><span id="r-treats">0</span><small>treats</small></div>
   </div>
   <div id="day">Day 1 · Morning</div>
+  <div class="chips" id="artChips" hidden></div>
 </div>
 
 <div class="hud" id="wrath">
@@ -157,9 +180,11 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
   <div class="bar"><i id="wrathFill"></i></div>
 </div>
 <div class="hud" id="whisper"></div>
+<div class="hud" id="susp"><div class="lab">Village suspicion</div><div class="bar"><i id="suspFill"></i></div></div>
+<div id="stare"></div>
 
 <div class="hud panel" id="spirits">
-  <h2>Wisplings <span id="sp-count">1</span><small>of 8 to wake</small></h2>
+  <h2>Wisplings <span id="sp-count">1</span><small id="sp-of">of 5 to wake</small></h2>
   <div class="meta" id="sp-meta">Beds 0</div>
   <div class="jobs">
     <div class="job" data-job="wood"><span>Chop wood</span><button class="minus" aria-label="One fewer woodcutter">−</button><b id="j-wood">0</b><button class="plus" aria-label="One more woodcutter">+</button></div>
@@ -168,7 +193,7 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
     <div class="job rest"><span>Resting</span><i></i><b id="j-rest">0</b><i></i></div>
   </div>
   <button class="btn" id="planHut">Plan a spirit hut · 6 wood</button>
-  <div id="goal"><b>Next</b><span id="goal-text"></span></div>
+  <div id="goal"><b id="goal-head">Next</b><span id="goal-text"></span><ul class="quests" id="quests" hidden></ul></div>
 </div>
 
 <div class="hud" id="cross"></div>
@@ -177,6 +202,7 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
 <div class="hud panel" id="prompt"></div>
 <div class="hud" id="toast"></div>
 <button class="hud" id="jumpBtn" aria-label="Jump">Jump</button>
+<button class="hud" id="tossBtn" aria-label="Toss the wispling up">Toss</button>
 <div class="hud" id="corner"><button id="helpBtn" aria-label="How to play">?</button><button id="charBtn" aria-label="Characters" title="Characters">☺</button><button id="muteBtn" aria-label="Mute sound">♪</button></div>
 <div id="fade"></div>
 
@@ -188,6 +214,30 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
     <button class="offer" id="offCoins"><strong>Offer 2 coins</strong><span>Calms her a little. Counts as today's offering.</span><em>−2 coins</em></button>
     <button class="offer" id="offTreat"><strong>Offer a treat</strong><span>She likes sweets. Calms her more.</span><em>−1 treat</em></button>
     <button class="offer big" id="offSummon"><strong>Call a wispling</strong><span>A new little spirit wakes from the shrine.</span><em>−3 coins<br>−2 treats</em></button>
+    <div id="restoreBox" hidden><h4 id="restoreTitle"></h4><ul class="req" id="restoreReq"></ul><button class="btn" id="restoreBtn">Restore</button></div>
+  </div>
+</div>
+
+<div class="modal" id="tradeModal" hidden>
+  <div class="card" role="dialog" aria-labelledby="tradeTitle">
+    <button class="x" id="tradeClose" aria-label="Close">×</button>
+    <h3 id="tradeTitle">Trade</h3>
+    <p id="tradeText"></p>
+    <div id="tradeRows"></div>
+  </div>
+</div>
+
+<div class="screen" id="chapter" hidden>
+  <div class="card">
+    <h1>Chapter two: her house</h1>
+    <div class="sub">She gave you an axe that never tires. Now she wants her shrine made whole, and she will be watching you from the trees.</div>
+    <ul>
+      <li>Restore the shrine in three steps. Each step needs wood, coins and a lost artifact. Check the list in your panel.</li>
+      <li>The signpost by the peddler now leads down to the village. You can buy and find artifacts there.</li>
+      <li>Some figures in the village are not people. <b>Don't look straight at them.</b> If the villagers see you staring at nothing, their suspicion rises, and when it fills they chase you out until morning.</li>
+      <li>Your wisplings still need food, beds and uppies while you're away.</li>
+    </ul>
+    <div class="row"><button class="btn" id="chapterBtn">Begin</button></div>
   </div>
 </div>
 
@@ -211,8 +261,8 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
       <li>Sell wood at the peddler's stump for coins. Cook food into treats at the campfire.</li>
       <li>Offer coins and treats at the shrine. Enough of both wakes a wispling.</li>
       <li>Give wisplings jobs, keep the pantry stocked, and build each pair a hut.</li>
-      <li>Tap a wispling (or press <b>E</b>) to pick them up. When one asks for <b>uppies</b>, go carry them before she does.</li>
-      <li>Bring her something every day. If her wrath fills, the mountain wakes.</li>
+      <li>Tap a wispling (or press <b>E</b>) to pick them up. When one asks for <b>uppies</b>, go carry them before she does. While holding one, press <b>Q</b> or right-click (or tap Toss) to throw them up and catch them.</li>
+      <li>Bring her something every day. If her wrath fills, the mountain wakes. Wake five wisplings and give each a bed to finish the first chapter.</li>
     </ul>
     <div class="row"><button class="btn" id="startBtn">Climb the mountain</button><button class="btn alt" id="charBtn2">Use my VRoid characters</button></div>
   </div>
@@ -267,7 +317,7 @@ const hemi = new THREE.HemisphereLight(0xfff6ea, 0x7aa06a, 0.8); scene.add(hemi)
 const sun = new THREE.DirectionalLight(0xfff1e0, 0.8);
 sun.position.set(18, 30, 16); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 90 });
-sun.shadow.bias = -0.0008; scene.add(sun);
+sun.shadow.bias = -0.0008; scene.add(sun); scene.add(sun.target);
 
 // toon look
 const gradMap = (() => { const d = new Uint8Array([20, 20, 20, 255, 34, 34, 34, 255, 44, 44, 44, 255]); const t = new THREE.DataTexture(d, 3, 1, THREE.RGBAFormat); t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true; return t; })();
@@ -372,6 +422,7 @@ function placeY(g, x, z) { g.position.set(x, heightAt(x, z), z); }
 
 // shrine
 const SHRINE = V(0, 0, -16);
+let shrineG = null;
 const shrineLight = new THREE.PointLight(0xff9ed1, 1.2, 14, 2);
 const shrineGlow = glow(0xff9ed1, 3.2, 0.8);
 {
@@ -409,7 +460,7 @@ const shrineGlow = glow(0xff9ed1, 3.2, 0.8);
     colliders.push({ x: sx, z: -12.8, r: 0.5 });
   }
   colliders.push({ x: 0, z: -16.3, r: 2.4 }, { x: -1.6, z: -15, r: 1.3 }, { x: 1.6, z: -15, r: 1.3 });
-  addItem({ type: 'shrine', x: 0, z: -14, reach: 1.6, obj: g });
+  addItem({ type: 'shrine', x: 0, z: -14, reach: 1.6, obj: g }); shrineG = g;
 }
 
 // cabin
@@ -800,7 +851,7 @@ function rimify(root, keep = []) {
   });
 }
 
-const P = { jy: 0, vy: 0, holding: null, pos: V(3, 0, 4), vel: V(), target: null, pendingIt: null, work: null, face: Math.PI, swing: 0 };
+const P = { where: 'mountain', axe: 1, jy: 0, vy: 0, holding: null, pos: V(3, 0, 4), vel: V(), target: null, pendingIt: null, work: null, face: Math.PI, swing: 0 };
 const player = (() => {
   // anime-proportioned outcast: about six heads tall, hakama, long ponytail
   const g = new THREE.Group(); scene.add(g);
@@ -935,6 +986,7 @@ class Spirit {
     this.pos = V(x, 0, z); this.job = 'rest'; this.state = 'idle'; this.task = null; this.target = V(); this.timer = 0;
     this.carry = null; this.hunger = 15; this.home = null; this.phase = R() * 6; this.face = 0; this.spawnT = 0;
     this.held = false; this.holder = null; this.uppT = 25 + R() * 50; this.sulk = 0; this.uppAge = 0;
+    this.air = null; this.moodSeq = null; this.sayT = 0; this.upTo = 'player';
     g.scale.setScalar(0.01);
     this.it = addItem({ type: 'spirit', spirit: this, x, z, pos: this.pos, reach: 1.0, obj: g });
   }
@@ -957,9 +1009,32 @@ class Spirit {
     if (d < stopAt) return true;
     const s = Math.min(d, speed * dt); this.pos.x += dx / d * s; this.pos.z += dz / d * s; this.face = Math.atan2(dx, dz); return false;
   }
-  askUppies() { this.release(); this.state = 'uppies'; this.timer = 20; this.uppAge = 0; tone(1320, 0.12, 'sine', 0.04); tone(1568, 0.15, 'sine', 0.04, 0.12); if (!sawUppies) { sawUppies = true; whisper('Pick them up. Nobody held them, back then.'); toast('A wispling wants uppies! Walk over and tap them, or press E.'); } }
+  // a short run of faces: [[seconds, mood], ...]; the last entry holds until something replaces it
+  setMoods(seq) { this.moodSeq = seq.map(e => [e[0], e[1]]); }
+  seqMood(dt) { const q = this.moodSeq; if (!q || !q.length) return null; q[0][0] -= dt; if (q[0][0] <= 0 && q.length > 1) q.shift(); else if (q[0][0] <= 0) { this.moodSeq = null; return null; } return q[0][1]; }
+  updateAir(dt, t) {
+    const a = this.air; a.t += dt; a.vel.y -= 13 * dt; a.pos.addScaledVector(a.vel, dt);
+    const gy = heightAt(a.pos.x, a.pos.z) + 0.12;
+    this.pos.set(a.pos.x, 0, a.pos.z); this.it.x = a.pos.x; this.it.z = a.pos.z;
+    this.g.position.copy(a.pos);
+    this.g.rotation.y = Math.atan2(P.pos.x - a.pos.x, P.pos.z - a.pos.z); this.g.rotation.z = Math.sin(a.t * 7) * 0.25;
+    a.sc = lerp(a.sc, 1.05, 1 - Math.exp(-dt * 8)); this.g.scale.setScalar(a.sc);
+    this.arms.forEach(q => q.piv.rotation.z = q.s * 2.7 + Math.sin(t * 16 + q.s) * 0.3);
+    this.icon.visible = false; this.bubble.visible = false;
+    if (!a.giggled && a.t > 0.12) { a.giggled = true; giggle(this); }
+    if (a.vel.y < 0 && !a.apex) { a.apex = true; this.setMoods([[99, { happy: 1, aa: 0.7 }]]); }
+    const mood = this.seqMood(dt) || { surprised: 1, aa: 0.5 };
+    if (this.vrm) poseVRM(this.vrm, { armsUp: 1, wave: true, mood }, dt);
+    // caught? (you only need to be roughly underneath)
+    const eye = heightAt(P.pos.x, P.pos.z) + 1.62 + P.jy, hd = Math.hypot(a.pos.x - P.pos.x, a.pos.z - P.pos.z);
+    if (a.vel.y < 0 && state === 'play' && !P.holding && hd < 1.5 && a.pos.y < eye + 0.1 && a.pos.y > eye - 1.3) return catchSpirit(this);
+    if (a.pos.y <= gy) dropSpirit(this);
+  }
+  askUppies() { this.release(); this.state = 'uppies'; this.timer = 20; this.uppAge = 0; this.sayT = 3.5; sayUppies(this); if (!sawUppies) { sawUppies = true; whisper('Pick them up. Nobody held them, back then.'); toast('A wispling wants uppies! Walk over and tap them, or press E.'); } }
   update(dt, t) {
     this.spawnT += dt; this.hunger = Math.min(100, this.hunger + dt * 100 / 80);
+    if (this.air) return this.updateAir(dt, t);
+    this.g.rotation.z = 0;
     this.it.x = this.pos.x; this.it.z = this.pos.z;
     if (this.held) {
       const f = P.face, hp = player.g.position;
@@ -972,19 +1047,27 @@ class Spirit {
       this.arms.forEach(a => a.piv.rotation.z = a.s * 2.2 + Math.sin(t * 7 + a.s) * 0.5);
       this.tail.rotation.y = Math.sin(t * 10) * 0.6;
       this.icon.visible = false; this.bubble.visible = false; this.heldT += dt;
-      if (this.vrm) poseVRM(this.vrm, { armsUp: 0.75, wave: true, mood: { happy: 1 } }, dt);
+      if (this.vrm) poseVRM(this.vrm, { armsUp: 0.75, wave: true, mood: this.seqMood(dt) || { happy: 1 } }, dt);
       this.bodyMat.color.setRGB(1, 0.97, 0.94); this.halo.material.opacity = 0.35 + night * 0.5;
       return;
     }
     // now and then, a wispling stops what it is doing and asks to be carried
     const calm = !this.carry && ['idle', 'wander', 'go'].includes(this.state);
-    if (calm && state === 'play') { this.uppT -= dt; if (this.uppT <= 0 && P.holding !== this) { this.uppT = 50 + R() * 70; if (!spirits.some(s => s.state === 'uppies')) this.askUppies(); } }
+    if (calm && state === 'play') { this.uppT -= dt; if (this.uppT <= 0 && P.holding !== this) { this.uppT = 50 + R() * 70; if (!spirits.some(s => s.state === 'uppies') && (P.where === 'mountain' || ladyFree())) this.askUppies(); } }
     if (this.sulk > 0) this.sulk -= dt;
     if (!this.carry && this.hunger > 65 && W.food > 0 && !['toEat', 'eating', 'uppies'].includes(this.state)) { this.release(); this.state = 'toEat'; this.target.set(STOCK.x, 0, STOCK.z); }
     switch (this.state) {
       case 'idle': this.pickTask(); break;
       case 'uppies': {
-        this.target.set(P.pos.x, 0, P.pos.z); this.moveTo(dt, 2.2, 2.0); this.face = Math.atan2(P.pos.x - this.pos.x, P.pos.z - this.pos.z);
+        // run to whoever is nearer: you, or her
+        const dYou = P.where === 'mountain' ? Math.hypot(P.pos.x - this.pos.x, P.pos.z - this.pos.z) : 1e9;
+        const dHer = ladyFree() ? Math.hypot(L.pos.x - this.pos.x, L.pos.z - this.pos.z) : 1e9;
+        if (dYou > 1e8 && dHer > 1e8) { this.state = 'idle'; break; }
+        this.upTo = dHer < dYou ? 'lady' : 'player';
+        const who = this.upTo === 'lady' ? L.pos : P.pos;
+        this.target.set(who.x, 0, who.z); const tr = Math.hypot(this.target.x, this.target.z); if (tr > 24) this.target.multiplyScalar(24 / tr);
+        this.moveTo(dt, 3.7, this.upTo === 'lady' ? 1.2 : 1.7); this.face = Math.atan2(who.x - this.pos.x, who.z - this.pos.z);
+        this.sayT -= dt; if (this.sayT <= 0 && this.timer > 3) { this.sayT = 4.5 + R() * 1.5; sayUppies(this); }
         this.timer -= dt; this.uppAge += dt;
         if (this.timer <= 0) { this.state = 'idle'; this.sulk = 14; wrath = clamp(wrath + 3, 0, 100); floatText(this.pos, '...', '#b9c3df'); if (time - lastUppiesWhisper > 60) { lastUppiesWhisper = time; whisper('They asked you for uppies. You walked away.'); } }
         break;
@@ -1040,18 +1123,20 @@ class Spirit {
     if (sad > 0.5) this.body.position.x = Math.sin(t * 40) * 0.02; else this.body.position.x = 0;
     this.bubble.visible = asking; this.bubble.scale.set(1.0 + Math.sin(t * 8) * 0.05, 0.47, 1);
     this.icon.visible = !asking && (hungry || homeless); this.icon.material = hungry ? hungryIconMat : homeIconMat;
-    if (this.vrm) { const mv = Math.hypot(this.pos.x - this._lp.x, this.pos.z - this._lp.z) / Math.max(dt, 1e-4); this._lp.copy(this.pos); poseVRM(this.vrm, { armsUp: asking ? 1 : this.carry ? 0.9 : 0, wave: asking, walk: t * 11 + this.phase, walkAmt: clamp(mv / 3, 0, 1), headRoll: this.sulk > 0 ? 0.25 : 0, mood: this.sulk > 0 ? { angry: 0.8, sad: 0.3 } : asking ? { happy: 0.5, aa: 0.35 + Math.abs(Math.sin(t * 9)) * 0.45 } : this.state === 'eating' ? { happy: 1 } : sad > 0.15 ? { sad: Math.min(1, 0.4 + sad) } : working ? { relaxed: 0.3 } : { relaxed: 0.5 } }, dt); }
+    if (this.vrm) { const mv = Math.hypot(this.pos.x - this._lp.x, this.pos.z - this._lp.z) / Math.max(dt, 1e-4); this._lp.copy(this.pos); poseVRM(this.vrm, { armsUp: asking ? 1 : this.carry ? 0.9 : 0, wave: asking, walk: t * 11 + this.phase, walkAmt: clamp(mv / 3, 0, 1), headRoll: this.sulk > 0 ? 0.25 : 0, mood: this.seqMood(dt) || (this.sulk > 0 ? { angry: 0.8, sad: 0.3 } : asking ? { happy: 0.5, aa: 0.35 + Math.abs(Math.sin(t * 9)) * 0.45 } : this.state === 'eating' ? { happy: 1 } : sad > 0.15 ? { sad: Math.min(1, 0.4 + sad) } : working ? { relaxed: 0.3 } : { relaxed: 0.5 }) }, dt); }
     this.halo.material.opacity = 0.2 + night * 0.55;
   }
 }
 function pickUp(s) {
   if (P.holding === s) return putDown();
+  if (s.air) { if (Math.hypot(s.air.pos.x - P.pos.x, s.air.pos.z - P.pos.z) < 2.4) return catchSpirit(s); return toast('Get underneath them!'); }
   if (s.held) return toast('She is holding that one. She will put them down soon.');
   if (P.holding) putDown();
   if (s.state === 'goBuild' && s.task) { s.task.obj.incoming--; s.task = null; }
   if (s.state === 'building' && s.task) { s.task.obj.incoming--; s.task = null; }
   const wanted = s.state === 'uppies';
   s.release(); s.held = true; s.holder = 'player'; s.heldT = 0; s.state = 'held'; s.sulk = 0; P.holding = s; P.work = null;
+  s.setMoods([[0.35, { surprised: 1 }], [1.2, { happy: 1, aa: 0.6 }], [99, { happy: 0.8, relaxed: 0.4 }]]); setTimeout(() => giggle(s, 0.8), 380);
   if (wanted) { wrath = clamp(wrath - 5, 0, 100); s.uppT = 70 + R() * 70; floatText(P.pos, '♥ yay!', '#ff9ebb'); burst(V(P.pos.x, heightAt(P.pos.x, P.pos.z) + 1.4, P.pos.z), 0xffc0d8, 2.5); chime(); if (R() < 0.35) whisper(['Look at them smile. I remember smiling.', 'Gently. They are so light.', 'Yes. Hold them close.'][Math.floor(R() * 3)]); }
   else { floatText(P.pos, '♪', '#ffe9c2'); tone(988, 0.12, 'sine', 0.04); }
 }
@@ -1060,6 +1145,30 @@ function putDown() {
   s.pos.set(P.pos.x + Math.sin(P.face) * 0.9, 0, P.pos.z + Math.cos(P.face) * 0.9);
   s.state = s.carry ? 'return' : 'idle'; if (s.carry) s.target.set(STOCK.x, 0, STOCK.z);
   if (s.heldT > 3) floatText(s.pos, '♥', '#ff9ebb'); tone(784, 0.1, 'sine', 0.03);
+}
+// toss them up and catch them again
+function tossSpirit() {
+  const s = P.holding; if (!s || state !== 'play') return;
+  P.holding = null; s.held = false; s.holder = null; s.state = 'air'; s.release();
+  const f = fwd(), eye = heightAt(P.pos.x, P.pos.z) + 1.62 + P.jy, side = V(-f.z, 0, f.x).multiplyScalar((R() - 0.5) * 0.9);
+  const start = V(P.pos.x + f.x * 0.45, eye - 0.35, P.pos.z + f.z * 0.45);
+  s.air = { pos: start, vel: V(f.x * 0.25 + side.x, 7 + R() * 1.4, f.z * 0.25 + side.z), t: 0, sc: 0.5, giggled: false, apex: false };
+  s.setMoods([[0.3, { surprised: 1, aa: 0.4 }], [99, { surprised: 0.6, happy: 0.5, aa: 0.6 }]]);
+  tone(660, 0.12, 'sine', 0.03); tone(990, 0.16, 'sine', 0.03, 0.06); tossCount++;
+  if (tossCount === 1) whisper('Father used to throw me up like that. I could see the whole valley.');
+}
+function catchSpirit(s) {
+  s.air = null; s.g.rotation.z = 0; s.held = true; s.holder = 'player'; s.heldT = 0; s.state = 'held'; P.holding = s; P.work = null;
+  s.setMoods([[1.4, { happy: 1, aa: 0.7 }], [99, { happy: 0.8, relaxed: 0.4 }]]); giggle(s, 1.1);
+  floatText(V(P.pos.x, heightAt(P.pos.x, P.pos.z) - 0.2, P.pos.z), ['caught!', 'again!', 'hehe!', '♥'][Math.floor(R() * 4)], '#ffd0dc');
+  tone(1046, 0.1, 'sine', 0.035); tone(1318, 0.14, 'sine', 0.03, 0.07);
+  if (time - lastCatchCalm > 4) { lastCatchCalm = time; wrath = clamp(wrath - 1.5, 0, 100); }
+}
+function dropSpirit(s) {
+  s.air = null; s.g.rotation.z = 0; s.state = 'idle'; s.pos.y = 0;
+  s.setMoods([[2.2, { sad: 1 }], [0.8, { relaxed: 0.5 }]]);
+  floatText(s.pos, 'oof!', '#b9c3df'); tone(180, 0.15, 'triangle', 0.06); burst(V(s.pos.x, heightAt(s.pos.x, s.pos.z) + 0.4, s.pos.z), 0xffffff, 1.6);
+  wrath = clamp(wrath + 1, 0, 100); if (R() < 0.5) whisper(['Careful with them!', 'You dropped my child.'][Math.floor(R() * 2)]);
 }
 function elastic(x) { return x >= 1 ? 1 : 1 - Math.pow(2, -9 * x) * Math.cos(x * 9); }
 function lerpAngle(a, b, t) { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * t; }
@@ -1162,7 +1271,21 @@ function setLadyOpacity(o) { lady.opacity = o; lady.g.visible = o > 0.01; lady.m
 const W = { wood: 2, food: 3, coins: 3, treats: 1 };
 let sawUppies = false, lastUppiesWhisper = -99;
 let state = 'title', day = 1, dayT = 0.27, wrath = 10, tributeToday = false, offeredEver = false, night = 0, time = 0, endT = 0, wonOnce = false, shake = 0, lastHungryWhisper = -99, lastHomeWhisper = -99;
-const DAY = 210, WIN_COUNT = 8, MAX_SPIRITS = 12;
+const DAY = 210, WIN_COUNT = 5, MAX_SPIRITS = 12;
+// chapters: 1 = wake five wisplings; 2 = restore her shrine with artifacts from the mountain and the village
+let level = 1, thanked = false, shrineStage = 0, suspicion = 0, townBanDay = 0, lastCatchCalm = -99, tossCount = 0;
+const ART = {
+  rope: { name: 'Straw rope', where: 'trade at the peddler’s stump', got: false },
+  charm: { name: 'Paper charm', where: 'a child in the village wants treats', got: false },
+  bell: { name: 'Shrine bell', where: 'buy it at the village stall', got: false },
+  mirror: { name: 'Her mirror', where: 'the village storehouse, among the hollow ones', got: false },
+  hairpin: { name: 'Her hairpin', where: 'the pond, when the moon is up', got: false },
+};
+const STAGES = [
+  { title: 'Hang a new rope and charm', need: { wood: 8, rope: 1, charm: 1 }, line: 'A rope to bind the gate, a charm to keep it. Good.' },
+  { title: 'Hang the bell', need: { wood: 6, coins: 4, bell: 1 }, line: 'Ring it for me. Nobody has rung it in a hundred years.' },
+  { title: 'Return her mirror and hairpin', need: { mirror: 1, hairpin: 1 }, line: 'My face. I had forgotten my own face.' },
+];
 makeHutSite(0, 3);
 function spawnSpirit(first = false) {
   const s = new Spirit(0, -12.5); spirits.push(s); assignHomes();
@@ -1181,6 +1304,45 @@ function tone(f, d = 0.3, type = 'sine', v = 0.06, delay = 0) {
 }
 function chime() { [784, 988, 1319, 1568].forEach((f, i) => tone(f, 0.9, 'sine', 0.05, i * 0.08)); }
 function rumble(d = 1.6) { tone(46, d, 'sawtooth', 0.07); tone(38, d, 'square', 0.03, 0.05); }
+
+// ---------------------------------------------------------------- little voices
+// "uppies!" is spoken with the system voice where there is one (pitched up like a small child), and sung
+// by a tiny formant synth otherwise. Giggles are always synthesized.
+let voicePick = null;
+function pickVoice() { try { const vs = speechSynthesis.getVoices(); if (!vs.length) return null; const en = vs.filter(v => /^en/i.test(v.lang)); return en.find(v => /female|zira|samantha|aria|jenny|karen|tessa|google us english/i.test(v.name)) || en[0] || vs[0]; } catch (e) { return null; } }
+try { speechSynthesis.onvoiceschanged = () => { voicePick = pickVoice(); }; } catch (e) { }
+function speak(text, pitch, rate, vol) {
+  if (muted) return false;
+  try { if (!('speechSynthesis' in window)) return false; if (!voicePick) voicePick = pickVoice(); if (!voicePick) return false; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.voice = voicePick; u.pitch = pitch; u.rate = rate; u.volume = clamp(vol, 0, 1); speechSynthesis.speak(u); return true; } catch (e) { return false; }
+}
+// sylls: [pitch multiple, length, F1, F2, gap after]
+function chirpVoice(sylls, base, vol) {
+  if (!AC || muted || vol < 0.003) return;
+  let t0 = AC.currentTime + 0.01;
+  for (const [pm, d, f1, f2, gap = 0] of sylls) {
+    try {
+      const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(base * pm, t0); o.frequency.linearRampToValueAtTime(base * pm * 0.88, t0 + d);
+      const vib = AC.createOscillator(), vg = AC.createGain(); vib.frequency.value = 9; vg.gain.value = base * 0.025; vib.connect(vg); vg.connect(o.frequency);
+      const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.015); g.gain.setValueAtTime(vol, t0 + d * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+      for (const [f, q, a] of [[f1, 5, 1], [f2, 9, 0.6]]) { const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q; const ga = AC.createGain(); ga.gain.value = a * 4; o.connect(bp); bp.connect(ga); ga.connect(g); }
+      g.connect(AC.destination); o.start(t0); vib.start(t0); o.stop(t0 + d + 0.05); vib.stop(t0 + d + 0.05);
+    } catch (e) { }
+    t0 += d + gap;
+  }
+}
+const voiceBase = s => 560 + (KINDS.indexOf(s.kind) * 37) % 170;
+function earVol(pos) { if (P.where !== 'mountain') return 0; return clamp(1 - Math.hypot(pos.x - P.pos.x, pos.z - P.pos.z) / 32, 0, 1); }
+function sayUppies(s) {
+  const v = earVol(s.pos); if (v <= 0.03) return;
+  floatText(s.pos, 'uppies!', '#ffd0dc');
+  if (!speak('uppies!', 1.9 + R() * 0.1, 1.2, v)) chirpVoice([[1, 0.15, 640, 1300, 0.02], [1.3, 0.2, 380, 2900], [1.18, 0.24, 420, 3000]], voiceBase(s), 0.07 * v);
+}
+function giggle(s, big = 1) {
+  const v = earVol(s.pos) * big; if (v <= 0.03) return;
+  const n = 4 + Math.floor(R() * 3), sy = [];
+  for (let i = 0; i < n; i++) sy.push([1.35 - i * 0.06 + R() * 0.05, 0.085, i % 2 ? 450 : 520, 2800, 0.045]);
+  chirpVoice(sy, voiceBase(s) * 1.1, 0.06 * v);
+}
 
 // ---------------------------------------------------------------- HUD
 const ui = { toastT: 0, whisperT: 0 };
@@ -1209,6 +1371,17 @@ function refreshHUD() {
   else if (homeless) g = 'Some wisplings have no bed. Plan another hut and set someone to Build.';
   else g = `Wake ${Math.max(0, WIN_COUNT - spirits.length)} more wisplings and give every one a bed.`;
   if (spirits.length >= WIN_COUNT && !homeless) g = 'The mountain is full of little lights again.';
+  $('sp-of').textContent = level === 1 ? `of ${WIN_COUNT} to wake` : 'awake';
+  const qs = $('quests'); qs.hidden = level < 2; $('artChips').hidden = level < 2;
+  if (level >= 2) {
+    const st = STAGES[shrineStage];
+    $('goal-head').textContent = st ? `Restore her shrine · step ${shrineStage + 1} of 3` : 'Her shrine is whole';
+    g = st ? `${st.title}: ` + Object.entries(st.need).map(([k, n]) => k === 'wood' || k === 'coins' ? `${n} ${k}` : ART[k].name).join(', ') + '. Bring it all to the shrine.' : 'Rest now.';
+    if (homeless) g += ' Some wisplings still need beds.';
+    qs.innerHTML = ''; for (const k in ART) { const li = document.createElement('li'); li.className = ART[k].got ? 'done' : ''; li.innerHTML = '<b></b> <i></i>'; li.querySelector('b').textContent = ART[k].name; li.querySelector('i').textContent = ART[k].got ? '' : '· ' + ART[k].where; qs.append(li); }
+    const ac = $('artChips'); ac.innerHTML = ''; const n = Object.values(ART).filter(a => a.got).length; const c = document.createElement('div'); c.className = 'chip art'; c.textContent = `Artifacts ${n}/5`; ac.append(c);
+    if (P.where === 'town') { const t = document.createElement('div'); t.className = 'chip art'; t.textContent = 'In the village'; ac.append(t); }
+  } else $('goal-head').textContent = 'Next';
   $('goal-text').textContent = ' ' + g;
 }
 document.querySelectorAll('.job[data-job]').forEach(row => {
@@ -1230,7 +1403,8 @@ function openShrine() {
   const full = spirits.length >= MAX_SPIRITS;
   $('offSummon').disabled = W.coins < 3 || W.treats < 2 || full;
   $('offSummon').querySelector('span').textContent = full ? 'The mountain holds as many as it can for now.' : 'A new little spirit wakes from the shrine.';
-  setTimeout(() => (W.coins >= 3 && W.treats >= 2 && !full ? $('offSummon') : $('shrineClose')).focus(), 30);
+  refreshRestore();
+  setTimeout(() => (level >= 2 && !$('restoreBtn').disabled && !$('restoreBox').hidden ? $('restoreBtn') : W.coins >= 3 && W.treats >= 2 && !full ? $('offSummon') : $('shrineClose')).focus(), 30);
 }
 function closeShrine() { $('shrineModal').hidden = true; canvas.focus(); }
 function offered(amount) { wrath = clamp(wrath - amount, 0, 100); if (!tributeToday && dayT > 0.72) whisper('Just in time. Good.'); tributeToday = true; offeredEver = true; shrineLight.intensity = 3; burst(V(0, 1.8, -13.8), 0xff9ed1, 3); }
@@ -1251,7 +1425,7 @@ $('shrineModal').addEventListener('pointerdown', e => { if (e.target === $('shri
 const keys = new Set();
 // first-person view: yaw/pitch of the eyes
 let yaw = 0, pitch = -0.08, moving = false;
-const FP_STATES = ['play', 'resting', 'paused'];
+const FP_STATES = ['play', 'resting', 'paused', 'travel'];
 const fwd = () => V(-Math.sin(yaw), 0, -Math.cos(yaw));
 const clampPitch = () => { pitch = clamp(pitch, -1.2, 1.0); };
 camera.rotation.order = 'YXZ'; scene.add(camera);
@@ -1262,13 +1436,15 @@ M(new THREE.BoxGeometry(0.05, 0.16, 0.2), mat(0xc9cbd6), 0, 0.42, -0.07, viewAxe
 viewAxe.visible = false;
 addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('shrineModal').hidden) { closeShrine(); return; }
+  if (e.key === 'Escape' && !$('tradeModal').hidden) { closeTrade(); return; }
   if (e.key === 'Escape' && !$('charModal').hidden) { $('charModal').hidden = true; return; }
   if (!$('charModal').hidden) return;
-  if (state !== 'play' || !$('shrineModal').hidden) return;
+  if (state !== 'play' || !$('shrineModal').hidden || !$('tradeModal').hidden) return;
   const k = e.key.toLowerCase();
   if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { keys.add(k); e.preventDefault(); }
   if ((k === 'e' || k === 'f') && !e.repeat) { act(); e.preventDefault(); }
   if (k === ' ') { jump(); e.preventDefault(); }
+  if (k === 'q' && !e.repeat) { tossSpirit(); e.preventDefault(); }
   if (k === 'shift') keys.add('shift');
 });
 addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); if (k === 'shift') keys.delete('shift'); });
@@ -1311,8 +1487,10 @@ function showStick(on) { $('stick').hidden = !on; if (on) { $('stick').style.lef
 function grabMouse() { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
 function freeMouse() { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { } }
 document.addEventListener('pointerlockchange', () => { $('lookHint').classList.toggle('off', !!document.pointerLockElement); });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   audioOn(); if (state !== 'play') return;
+  if (e.button === 2) { tossSpirit(); return; }
   if (document.pointerLockElement === canvas) { act(); return; }
   if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.45) { Object.assign(stick, { active: true, id: e.pointerId, ox: e.clientX, oy: e.clientY, dx: 0, dy: 0 }); showStick(true); return; }
   drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, mouse: e.pointerType === 'mouse' };
@@ -1348,7 +1526,14 @@ function itemLabel(it) {
     case 'rabbit': return 'Mountain hare';
     case 'spirit': return it.spirit.state === 'uppies' ? `Pick up the ${it.spirit.kind.name} wispling · they want uppies!` : `Pick up the ${it.spirit.kind.name} wispling`;
     case 'fire': return 'Cook a treat · 2 food';
-    case 'peddler': return 'Sell 3 wood for 2 coins';
+    case 'peddler': return level >= 2 ? 'Trade at the peddler’s stump' : 'Sell 3 wood for 2 coins';
+    case 'toTown': return day < townBanDay ? 'Path to the village · closed until morning' : 'Take the path down to the village';
+    case 'toMountain': return 'Climb back up the mountain';
+    case 'shop': case 'ume': return 'Old Ume’s stall · trade';
+    case 'hana': return ART.charm.got ? 'Hana' : 'Talk to Hana';
+    case 'person': return 'Villager';
+    case 'mirror': return 'A tarnished mirror · take it';
+    case 'hairpin': return 'Something glints in the reeds · take it';
     case 'shrine': return 'Make an offering';
     case 'site': return `Build spirit hut · ${it.progress}/${it.need} wood`;
     case 'cabin': return cabin.built ? (isNight() ? 'Rest until morning' : 'Your cabin · rest here after dusk') : `Mend your cabin · ${cabin.progress}/${cabin.need} wood`;
@@ -1366,7 +1551,7 @@ function doInteract(it) {
   switch (it.type) {
     case 'tree':
       if (it.wood <= 0) return toast('Just a stump. It will grow back.');
-      return startWork(it, 3, () => { if (it.wood <= 0) return false; chopTree(it); W.wood++; floatText(P.pos, '+1 wood', '#ffd9a8'); return true; });
+      return startWork(it, 3, () => { if (it.wood <= 0) return false; chopTree(it); W.wood += P.axe; floatText(P.pos, `+${P.axe} wood`, '#ffd9a8'); return true; });
     case 'bush':
       if (it.n <= 0) return toast('No berries yet. They grow back slowly.');
       return startWork(it, 3, () => { if (it.n <= 0) return false; it.n--; refreshBush(it); W.food++; floatText(P.pos, '+1 food', '#ffc2cf'); tone(880, 0.08, 'triangle', 0.04); return true; });
@@ -1375,10 +1560,19 @@ function doInteract(it) {
       if (W.food < 2) return toast('You need 2 food to roast a treat.');
       return startWork(it, 1, () => { if (W.food < 2) return false; W.food -= 2; W.treats++; floatText(P.pos, '+1 treat', '#c9f0c4'); tone(660, 0.15, 'triangle', 0.05); return true; });
     case 'peddler':
+      if (level >= 2) return peddlerTrade();
       if (W.wood < 3) return toast('The peddler leaves 2 coins for every 3 wood. Nobody else will trade with you.');
       return startWork(it, 1, () => { if (W.wood < 3) return false; W.wood -= 3; W.coins += 2; floatText(P.pos, '+2 coins', '#ffe28a'); tone(1568, 0.12, 'square', 0.03); tone(2093, 0.15, 'square', 0.03, 0.08); return true; });
     case 'shrine': return openShrine();
     case 'spirit': return pickUp(it.spirit);
+    case 'toTown': return travel('town');
+    case 'toMountain': return travel('mountain');
+    case 'shop': return shopTrade();
+    case 'ume': return shopTrade();
+    case 'hana': return hanaTalk();
+    case 'person': { const v = it.v; v.wait = 3; v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); return toast(VLINES[Math.floor(R() * VLINES.length)]); }
+    case 'mirror': if (ART.mirror.got) return; it.obj.visible = false; return gotArt('mirror', 'My mirror. They kept it in a box, with the rice.');
+    case 'hairpin': if (ART.hairpin.got) return; it.obj.visible = false; return gotArt('hairpin', 'Mother put that in my hair the morning they came.');
     case 'site':
       if (W.wood <= 0) return toast('You need wood to build. Chop a tree or ask wisplings to.');
       return startWork(it, it.need - it.progress, () => { if (W.wood <= 0 || it.done) return false; W.wood--; addProgress(it, 1, true); return true; });
@@ -1472,7 +1666,7 @@ function update(dt) {
     if (hungryN && W.food === 0 && time - lastHungryWhisper > 40) { lastHungryWhisper = time; whisper('My children are hungry. Do you hear them?'); }
     if (homelessN && time - lastHomeWhisper > 55) { lastHomeWhisper = time; whisper('They shiver in the open. Build them a home.'); }
     if (wrath >= 99.5) startEruption();
-    if (!wonOnce && spirits.length >= WIN_COUNT && spirits.every(s => s.home)) startWin();
+    if (level === 1 && !thanked && spirits.length >= WIN_COUNT && spirits.every(s => s.home) && P.where === 'mountain' && !P.work) startThanks();
   }
   const heat = clamp((wrath - 40) / 60, 0, 1);
   // sky + lights
@@ -1514,6 +1708,14 @@ function update(dt) {
     r.x = r.pos.x; r.z = r.pos.z;
     r.obj.position.set(r.pos.x, heightAt(r.pos.x, r.pos.z) + (r.wait > 0 || r.frozen ? 0 : Math.abs(Math.sin(r.hop)) * 0.3), r.pos.z); r.obj.rotation.y = r.face;
   }
+  // chapter two bits: the hairpin shines at night; the village lives while you are in it
+  hairpinIt.obj.visible = level >= 2 && !ART.hairpin.got && isNight(); if (hairpinIt.obj.visible) hairpinIt.gl.material.opacity = 0.6 + Math.sin(time * 4) * 0.3;
+  mirrorIt.obj.visible = !ART.mirror.got;
+  if (P.where === 'town' && FP_STATES.includes(state)) updateTown(dt); else staring = false;
+  $('susp').classList.toggle('on', P.where === 'town' && FP_STATES.includes(state)); $('suspFill').style.width = suspicion.toFixed(1) + '%';
+  $('cross').classList.toggle('bad', staring); $('stare').style.opacity = staring ? 0.35 + suspicion / 200 : 0;
+  // the sun's shadow box follows you, down in the village too
+  { const fp0 = FP_STATES.includes(state) || state === 'thanks'; const tx = fp0 ? P.pos.x : 0, tz = fp0 ? P.pos.z : 0; sun.target.position.set(tx, heightAt(tx, tz), tz); sun.position.copy(sun.target.position).add(V(18, 30, 16)); sun.target.updateMatrixWorld(); }
   // spirits
   if (playing) spirits.forEach(s => s.update(dt, time));
   else spirits.forEach(s => { if (!s.held) s.g.position.y = heightAt(s.pos.x, s.pos.z) + 0.12 + Math.sin(time * 3 + s.phase) * 0.06; s.halo.material.opacity = 0.2 + night * 0.55; });
@@ -1586,13 +1788,13 @@ function updatePlayer(dt) {
   // collisions
   const before = P.pos.clone();
   for (const c of colliders) { const dx = P.pos.x - c.x, dz = P.pos.z - c.z, d = Math.hypot(dx, dz), m = c.r + 0.35; if (d < m && d > 0.0001) { P.pos.x = c.x + dx / d * m; P.pos.z = c.z + dz / d * m; } }
-  const r = Math.hypot(P.pos.x, P.pos.z); if (r > 25.5) { P.pos.x *= 25.5 / r; P.pos.z *= 25.5 / r; }
-  if (P.pos.z < -21) P.pos.z = -21;
+  if (P.where === 'town') { P.pos.x = clamp(P.pos.x, TOWN.x0, TOWN.x1); P.pos.z = clamp(P.pos.z, TOWN.z0, TOWN.z1); }
+  else { const r = Math.hypot(P.pos.x, P.pos.z); if (r > 25.5) { P.pos.x *= 25.5 / r; P.pos.z *= 25.5 / r; } if (P.pos.z < -21) P.pos.z = -21; }
   if (P.target && moving && before.distanceTo(P.pos) > 0.001) { P.stuckT = (P.stuckT || 0) + dt; if (P.stuckT > 2.5) { P.stuckT = 0; const it = P.pendingIt; P.target = null; P.pendingIt = null; if (it && inReach(it)) doInteract(it); } } else P.stuckT = 0;
   // work
   if (P.work) {
     if (moving) P.work = null;
-    else { P.work.timer -= dt; if (P.work.timer <= 0) { const ok = P.work.fn(); P.work.left--; P.work.timer = 0.6; if (!ok || P.work.left <= 0) P.work = null; } }
+    else { P.work.timer -= dt; if (P.work.timer <= 0) { const ok = P.work.fn(); P.work.left--; P.work.timer = 0.6; if (!ok || P.work.left <= 0) P.work = null; else P.work.timer = P.axe > 1 && P.work.it.type === 'tree' ? 0.36 : 0.6; } }
   }
   const working = !!P.work;
   viewAxe.visible = working && ['tree', 'site', 'cabin'].includes(P.work.it.type) && !P.holding;
@@ -1606,18 +1808,21 @@ function updatePrompt() {
   const p = $('prompt');
   if (state !== 'play') { p.classList.remove('on'); return; }
   const it = lookTarget(); $('cross').classList.toggle('on', !!(it && inReach(it)));
-  if (P.holding && !(it && it.type === 'spirit' && !it.spirit.held)) { p.innerHTML = (isTouch ? '' : '<kbd>E</kbd>') + '<span></span>'; p.querySelector('span').textContent = `Put down the ${P.holding.kind.name} wispling` + (isTouch ? ' · tap them' : ''); p.classList.add('on'); }
+  $('tossBtn').classList.toggle('on', !!P.holding);
+  if (P.holding && !(it && it.type === 'spirit' && !it.spirit.held)) { p.innerHTML = (isTouch ? '' : '<kbd>E</kbd>') + '<span></span>' + (isTouch ? '' : '<kbd>Q</kbd><span>Toss up</span>'); p.querySelector('span').textContent = `Put down the ${P.holding.kind.name} wispling` + (isTouch ? ' · tap them' : ''); p.classList.add('on'); }
   else if (it) { p.innerHTML = (isTouch ? '' : '<kbd>E</kbd>') + '<span></span>'; p.querySelector('span').textContent = itemLabel(it) + (inReach(it) ? (isTouch ? ' · tap it' : '') : ' · walk closer'); p.classList.add('on'); }
   else p.classList.remove('on');
 }
-// she drifts around the mountain, and comes for wisplings who ask to be held
-const L = { pos: V(-5, 0, -8), target: V(-5, 0, -8), wait: 2, carrying: null, carryT: 0, chase: null, face: 0, scale: 1.15 };
+// she drifts around the mountain, keeps away from you behind the trees, and comes for wisplings who ask to be held
+const L = { pos: V(-5, 0, -8), target: V(-5, 0, -8), wait: 2, carrying: null, carryT: 0, chase: null, face: 0, scale: 1.15, mode: 'roam', hide: null, hideT: 0, speed: 1.1 };
+const ladyFree = () => !L.carrying && L.mode !== 'thank' && state === 'play';
 function ladyPickUp(s) {
   s.release(); s.held = true; s.holder = 'lady'; s.heldT = 0; s.state = 'held'; s.sulk = 0; s.uppT = 60 + R() * 70;
+  s.setMoods([[0.4, { surprised: 0.8 }], [1.2, { happy: 1, aa: 0.5 }], [99, { happy: 0.7, relaxed: 0.6 }]]); setTimeout(() => giggle(s, 0.7), 400);
   L.carrying = s; L.chase = null; L.carryT = 10 + R() * 6; wrath = clamp(wrath - 2, 0, 100);
   burst(s.g.position.clone(), 0x8fd0ff, 2.5); tone(523, 0.6, 'sine', 0.03); tone(554, 0.6, 'sine', 0.025);
   const d = Math.hypot(P.pos.x - L.pos.x, P.pos.z - L.pos.z);
-  if (d < 22) whisper(['There, there. Mother has you.', 'You were too slow. I will hold this one.', 'Up you go, little one. Up and away from them.', 'Shh. I have you. I always have you.'][Math.floor(R() * 4)]);
+  if (d < 22 && P.where === 'mountain') whisper(['There, there. Mother has you.', 'You were too slow. I will hold this one.', 'Up you go, little one. Up and away from them.', 'Shh. I have you. I always have you.'][Math.floor(R() * 4)]);
 }
 function ladyPutDown() {
   const s = L.carrying; if (!s) return; L.carrying = null; s.held = false; s.holder = null;
@@ -1625,39 +1830,366 @@ function ladyPutDown() {
   s.state = s.carry ? 'return' : 'idle'; if (s.carry) s.target.set(STOCK.x, 0, STOCK.z);
   L.wait = 2 + R() * 2;
 }
+// a spot on the far side of a tree, as seen from you
+function hideSpot(minD, maxD, near) {
+  let best = null, bs = 1e9;
+  for (const t of trees) {
+    if (t.wood <= 0) continue;
+    const dp = Math.hypot(t.x - P.pos.x, t.z - P.pos.z); if (dp < minD || dp > maxD) continue;
+    const sc = Math.hypot(t.x - near.x, t.z - near.z) + R() * 4; if (sc < bs) { bs = sc; best = t; }
+  }
+  if (!best) return null;
+  const dx = best.x - P.pos.x, dz = best.z - P.pos.z, d = Math.hypot(dx, dz) || 1;
+  return { tree: best, x: best.x + dx / d * 1.15, z: best.z + dz / d * 1.15 };
+}
+const youOnMountain = () => P.where === 'mountain' && FP_STATES.includes(state);
 function updateLady(dt) {
   if (state === 'erupting' || state === 'won') return;
+  if (state === 'thanks') return updateThanks(dt);
   const heat = clamp((wrath - 40) / 60, 0, 1);
   // fully solid (Drig's choice); she only fades out for the endings
-  const want = 1;
-  setLadyOpacity(lerp(lady.opacity, state === 'title' || state === 'play' || state === 'paused' || state === 'resting' ? want : 0, 0.05));
+  setLadyOpacity(lerp(lady.opacity, ['title', 'play', 'paused', 'resting', 'travel'].includes(state) ? 1 : 0, 0.05));
   let moving = false;
   if (state === 'play') {
+    const here = youOnMountain(), dP = here ? Math.hypot(P.pos.x - L.pos.x, P.pos.z - L.pos.z) : 1e9;
     if (L.carrying) { L.carryT -= dt; if (L.carryT <= 0) ladyPutDown(); }
-    if (!L.carrying) {
-      if (L.chase && (L.chase.state !== 'uppies' || L.chase.held)) L.chase = null;
-      if (!L.chase) { const s = spirits.find(s => s.state === 'uppies' && s.uppAge > 7); if (s) { L.chase = s; } }
-      if (L.chase) { L.target.set(L.chase.pos.x, 0, L.chase.pos.z); if (Math.hypot(L.target.x - L.pos.x, L.target.z - L.pos.z) < 1.1) ladyPickUp(L.chase); }
+    L.hideT -= dt;
+    // you came too close: slip away behind a tree
+    const tooClose = dP < (L.mode === 'follow' ? 7 : 8.5);
+    const hideBroken = L.hide && here && Math.hypot(L.hide.x - P.pos.x, L.hide.z - P.pos.z) < 6.5;
+    if (tooClose && (!L.hide || hideBroken || L.hideT <= 0)) {
+      const h = hideSpot(9, 24, L.pos); if (h) { L.hide = h; L.target.set(h.x, 0, h.z); L.hideT = 2.5; L.speed = 3.6; L.chase = null; L.fleeing = true; }
     }
+    if (!L.carrying && !(L.fleeing && tooClose)) {
+      if (L.chase && (L.chase.state !== 'uppies' || L.chase.held)) L.chase = null;
+      // she only comes for a wispling when you are not standing right there
+      const okChase = s => s.state === 'uppies' && (s.upTo === 'lady' || s.uppAge > 7) && (!here || Math.hypot(s.pos.x - P.pos.x, s.pos.z - P.pos.z) > 6);
+      if (!L.chase) L.chase = spirits.find(okChase) || null;
+      else if (!okChase(L.chase)) L.chase = null;
+      if (L.chase) { L.target.set(L.chase.pos.x, 0, L.chase.pos.z); L.speed = 2.8; L.hide = null; if (Math.hypot(L.target.x - L.pos.x, L.target.z - L.pos.z) < 1.3) ladyPickUp(L.chase); }
+    }
+    if (!tooClose) L.fleeing = false;
     const dx = L.target.x - L.pos.x, dz = L.target.z - L.pos.z, d = Math.hypot(dx, dz);
-    if (d > 0.3) { const sp = L.chase ? 2.7 : 1.1; const st = Math.min(d, sp * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; L.face = Math.atan2(dx, dz); moving = true; }
+    if (d > 0.3) { const st = Math.min(d, L.speed * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; L.face = Math.atan2(dx, dz); moving = true; }
     else if (!L.chase) {
       L.wait -= dt;
-      // when she is angry she stops and stares at you
-      if (heat > 0.3) L.face = lerpAngle(L.face, Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z), 0.05);
-      if (L.wait <= 0) { L.wait = 3 + R() * 5; for (let i = 0; i < 20; i++) { const a = R() * 6.28, r = 4 + R() * 17, x = Math.cos(a) * r, z = Math.sin(a) * r; if (z > -19 && Math.hypot(x - POND.x, z - POND.z) > 4) { L.target.set(x, 0, z); break; } } }
+      // from behind her tree she watches you; when she is angry she stares openly
+      if (here && (L.hide || heat > 0.3 || L.mode === 'follow')) L.face = lerpAngle(L.face, Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z), 0.05);
+      if (L.wait <= 0) {
+        L.wait = L.mode === 'follow' ? 2.5 + R() * 2 : 4 + R() * 5;
+        if (L.mode === 'follow' && here) {
+          // chapter two: she trails you from a distance, slipping from tree to tree behind you
+          const f = fwd(), behind = V(P.pos.x - f.x * 12, 0, P.pos.z - f.z * 12);
+          const h = hideSpot(9, 17, behind); if (h && Math.hypot(h.x - P.pos.x, h.z - P.pos.z) > 8) { L.hide = h; L.target.set(h.x, 0, h.z); L.speed = 2.2; }
+        } else if (R() < 0.6 || !here) {
+          for (let i = 0; i < 25; i++) { const a = R() * 6.28, r = 4 + R() * 17, x = Math.cos(a) * r, z = Math.sin(a) * r; if (z > -19 && Math.hypot(x - POND.x, z - POND.z) > 4 && (!here || Math.hypot(x - P.pos.x, z - P.pos.z) > 11)) { L.target.set(x, 0, z); L.hide = null; L.speed = 1.1; break; } }
+        } else { const h = hideSpot(10, 22, L.pos); if (h) { L.hide = h; L.target.set(h.x, 0, h.z); L.speed = 1.3; } }
+      }
     }
   }
+  placeLady(moving, dt);
+}
+function placeLady(moving, dt = 1 / 60) {
   lady.g.position.set(L.pos.x, heightAt(L.pos.x, L.pos.z) + 0.18 + Math.sin(time * 1.3) * 0.08, L.pos.z);
   lady.g.scale.setScalar(L.scale);
   lady.g.rotation.y = lerpAngle(lady.g.rotation.y, L.face, 0.08);
   lady.g.rotation.z = moving ? Math.sin(time * 1.5) * 0.03 : 0;
-  lady.arms.forEach(a => { a.piv.rotation.x = L.carrying ? -1.05 : 0; a.piv.rotation.z = L.carrying ? -a.s * 0.45 : a.s * 0.06; });
-  lady.head.rotation.x = L.carrying ? 0.25 : 0;
-  if (ladyVRM) poseVRM(ladyVRM, { carry: L.carrying ? 1 : 0, headTilt: L.carrying ? 0.25 : 0, mood: L.carrying ? { relaxed: 0.9 } : wrath > 60 ? { angry: clamp((wrath - 50) / 40, 0, 1) } : { sad: 0.45 } }, dt);
+  const giving = state === 'thanks' && L.giving;
+  lady.arms.forEach(a => { a.piv.rotation.x = L.carrying || giving ? -1.05 : 0; a.piv.rotation.z = L.carrying ? -a.s * 0.45 : a.s * 0.06; });
+  lady.head.rotation.x = L.carrying || L.bow ? 0.25 + (L.bow || 0) : 0;
+  if (ladyVRM) poseVRM(ladyVRM, { carry: L.carrying ? 1 : giving ? 0.8 : 0, headTilt: L.carrying ? 0.25 : (L.bow || 0), mood: L.carrying ? { relaxed: 0.9 } : wrath > 60 ? { angry: clamp((wrath - 50) / 40, 0, 1) } : { sad: 0.45 } }, dt);
   spinOrbs();
 }
 function spinOrbs() { lady.orbs.forEach((o, i) => { const a = time * 1.2 + i * 2.09; o.position.set(Math.cos(a) * 0.9, 1.9 + Math.sin(time * 2 + i) * 0.3, Math.sin(a) * 0.9); }); }
+
+// ---------------------------------------------------------------- chapter one ends: her thanks
+const giftAxe = new THREE.Group(); scene.add(giftAxe); giftAxe.visible = false;
+M(new THREE.CylinderGeometry(0.035, 0.04, 0.7, 8), mat(0xe8e0f0), 0, 0, 0, giftAxe);
+M(new THREE.BoxGeometry(0.06, 0.2, 0.26), mat(0xffd6ec, { emissive: 0xff9ed1, emissiveIntensity: 0.7 }), 0, 0.28, 0.1, giftAxe);
+{ const gg = glow(0xff9ed1, 1.2, 0.8); gg.position.set(0, 0.28, 0.1); giftAxe.add(gg); }
+function tintViewAxe() {
+  viewAxe.children[1].material = mat(0xffd6ec, { emissive: 0xff9ed1, emissiveIntensity: 0.7 });
+  viewAxe.children[0].material = mat(0xe8e0f0);
+  const gg = glow(0xff9ed1, 0.35, 0.7); gg.position.set(0, 0.42, -0.07); viewAxe.add(gg);
+}
+function startThanks() {
+  thanked = true; state = 'thanks'; endT = 0; document.body.classList.add('cine'); $('toast').classList.remove('on'); P.work = null; P.target = null; keys.clear(); freeMouse(); $('prompt').classList.remove('on'); $('tradeModal').hidden = true; $('shrineModal').hidden = true;
+  if (L.carrying) ladyPutDown(); L.mode = 'thank'; L.giving = false; L.bow = 0; L.chase = null; L.hide = null;
+  // she steps out from the trees in front of you
+  const f = fwd(); let x = P.pos.x + f.x * 10, z = P.pos.z + f.z * 10; const r = Math.hypot(x, z); if (r > 23) { x *= 23 / r; z *= 23 / r; }
+  if (Math.hypot(L.pos.x - P.pos.x, L.pos.z - P.pos.z) > 14) L.pos.set(x, 0, z);
+  camPos.copy(camera.position); camLook.copy(camera.position).add(camera.getWorldDirection(V()));
+  chime(); setTimeout(chime, 400);
+}
+const THANKS = [[0.6, 'Five little lights, all sleeping warm.'], [5.5, 'You held them when nobody held me.'], [10.2, 'Take this. It was cut from the tree they tied me to. It will never tire.'], [16, 'Now mend my house. I will stay close. Behind the trees.']];
+function updateThanks(dt) {
+  endT += dt;
+  for (const [t, line] of THANKS) if (endT - dt < t && endT >= t) whisper(line);
+  const dx = P.pos.x - L.pos.x, dz = P.pos.z - L.pos.z, d = Math.hypot(dx, dz);
+  let moving = false;
+  if (d > 2.7) { const st = Math.min(d - 2.7, 1.7 * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; moving = true; }
+  L.face = Math.atan2(dx, dz);
+  L.bow = endT > 5 && endT < 9.5 ? Math.sin((endT - 5) / 4.5 * Math.PI) * 0.45 : 0;
+  L.giving = endT > 9.5 && endT < 13.2;
+  setLadyOpacity(1);
+  player.g.rotation.y = Math.atan2(L.pos.x - P.pos.x, L.pos.z - P.pos.z); P.face = player.g.rotation.y;
+  // the axe drifts from her hands to yours
+  if (endT > 9.8 && endT < 13) {
+    giftAxe.visible = true;
+    const hand = lady.g.localToWorld(V(0, ladyVRM ? 1.25 : 1.5, 0.7)), mine = player.g.localToWorld(V(0.3, 1.1, 0.45));
+    const k = clamp((endT - 11.2) / 1.5, 0, 1); giftAxe.position.copy(hand).lerp(mine, k * k * (3 - 2 * k)); giftAxe.rotation.y += dt * 2.5;
+  }
+  if (endT >= 13 && giftAxe.visible) { giftAxe.visible = false; P.axe = 2; tintViewAxe(); burst(player.g.position.clone().add(V(0, 1.2, 0)), 0xff9ed1, 3); chime(); toast('You received her spirit axe. Swings are quicker and each one brings 2 wood.'); }
+  placeLady(moving, dt);
+  const mid = V((P.pos.x + L.pos.x) / 2, 0, (P.pos.z + L.pos.z) / 2), dir = V(dx, 0, dz).normalize(), side = V(dir.z, 0, -dir.x);
+  mid.y = heightAt(mid.x, mid.z);
+  camTargetPos = mid.clone().addScaledVector(side, 5.5).add(V(0, 2.3, 0)); camTargetLook = mid.clone().add(V(0, 1.7, 0));
+  spirits.forEach(s => s.update(dt * 0.6, time));
+  if (endT > 20 && $('chapter').hidden && level === 1) { $('chapter').hidden = false; setTimeout(() => $('chapterBtn').focus(), 30); }
+}
+$('chapterBtn').onclick = () => {
+  $('chapter').hidden = true; level = 2; state = 'play'; document.body.classList.remove('cine'); L.mode = 'follow'; L.bow = 0; L.giving = false; L.wait = 0;
+  const h = hideSpot(10, 18, L.pos); if (h) { L.pos.set(h.x, 0, h.z); L.target.copy(L.pos); L.hide = h; }
+  townSign.obj.visible = true; canvas.focus(); refreshHUD(); chime();
+  toast('The signpost by the peddler now leads down to the village.');
+  setTimeout(() => whisper('My hairpin is still in the pond. It only shines when the moon is up.'), 7000);
+};
+
+// ---------------------------------------------------------------- chapter two: her shrine, made whole
+const shrineParts = (() => {
+  const g = shrineG, paper = mat(0xfff8ee), straw = mat(0xe3c77a), gold = mat(0xf2c45a, { emissive: 0x7a5a10, emissiveIntensity: 0.4 });
+  const rope = new THREE.Group(); g.add(rope); rope.visible = false;
+  const r = M(new THREE.CylinderGeometry(0.15, 0.15, 3, 10), straw, 0, 2.38, 1.22, rope); r.rotation.z = Math.PI / 2;
+  for (let i = -1; i <= 1; i++) for (let k = 0; k < 4; k++) M(new THREE.BoxGeometry(0.15, 0.14, 0.02), paper, i * 0.9 + (k % 2 ? 0.05 : -0.05), 2.16 - k * 0.14, 1.34, rope);
+  const charm = M(new THREE.BoxGeometry(0.2, 0.46, 0.02), paper, 0.62, 1.5, 1.1, g); charm.visible = false;
+  M(new THREE.BoxGeometry(0.1, 0.3, 0.01), mat(0xd9483b), 0, 0, 0.012, charm);
+  const bell = new THREE.Group(); g.add(bell); bell.visible = false;
+  M(new THREE.SphereGeometry(0.3, 14, 10), gold, 0, 2.02, 1.42, bell);
+  M(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6), mat(0xd9483b), 0.06, 1.3, 1.55, bell);
+  M(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6), mat(0xfff8ee), -0.06, 1.3, 1.55, bell);
+  const mirror = new THREE.Group(); g.add(mirror); mirror.visible = false;
+  const disc = M(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 24), mat(0xd8e8f8, { emissive: 0x7aa4cf, emissiveIntensity: 0.35 }), -0.1, 1.5, 1.12, mirror); disc.rotation.x = Math.PI / 2;
+  const mg = glow(0xbfe4ff, 1.1, 0.35); mg.position.set(-0.1, 1.5, 1.3); mirror.add(mg);
+  return { rope, charm, bell, mirror };
+})();
+function applyShrineStage() {
+  shrineParts.rope.visible = shrineParts.charm.visible = shrineStage >= 1; shrineParts.bell.visible = shrineStage >= 2; shrineParts.mirror.visible = shrineStage >= 3;
+  burst(V(0, 2.2, -14.6), 0xffe0f0, 5);
+}
+const have = k => k === 'wood' ? W.wood : k === 'coins' ? W.coins : (ART[k] && ART[k].got ? 1 : 0);
+function refreshRestore() {
+  const box = $('restoreBox'); box.hidden = level < 2 || shrineStage >= STAGES.length; if (box.hidden) return;
+  const st = STAGES[shrineStage]; $('restoreTitle').textContent = `Restore the shrine (${shrineStage + 1} of 3): ${st.title}`;
+  const ul = $('restoreReq'); ul.innerHTML = ''; let ok = true;
+  for (const [k, n] of Object.entries(st.need)) {
+    const h = have(k), good = h >= n, li = document.createElement('li'); ok = ok && good; li.className = good ? 'ok' : 'no';
+    li.textContent = (good ? '✓ ' : '✗ ') + (k === 'wood' || k === 'coins' ? `${n} ${k} (you have ${h})` : ART[k].name + (good ? '' : ` · ${ART[k].where}`));
+    ul.append(li);
+  }
+  $('restoreBtn').disabled = !ok;
+}
+$('restoreBtn').onclick = () => {
+  const st = STAGES[shrineStage]; if (!st) return;
+  for (const [k, n] of Object.entries(st.need)) if (have(k) < n) return;
+  if (st.need.wood) W.wood -= st.need.wood; if (st.need.coins) W.coins -= st.need.coins;
+  shrineStage++; applyShrineStage(); offered(10); chime(); setTimeout(chime, 300); whisper(st.line); closeShrine(); refreshHUD();
+  if (shrineStage >= STAGES.length) setTimeout(() => { if (state === 'play') startWin(); }, 3000);
+};
+
+// trading (the peddler's stump, the village stall, the child at the well)
+function openTrade(title, text, offers) {
+  const m = $('tradeModal'); m.hidden = false; keys.clear(); freeMouse();
+  $('tradeTitle').textContent = title; $('tradeText').textContent = text;
+  const box = $('tradeRows'); box.innerHTML = '';
+  for (const o of offers.filter(o => !o.gone)) {
+    const b = document.createElement('button'); b.className = 'offer' + (o.big ? ' big' : ''); b.innerHTML = '<strong></strong><span></span><em></em>';
+    b.querySelector('strong').textContent = o.label; b.querySelector('span').textContent = o.sub; b.querySelector('em').textContent = o.cost; b.disabled = !o.ok();
+    b.onclick = () => { if (!o.ok()) return; o.buy(); if (o.once) o.gone = true; refreshHUD(); if (!m.hidden) openTrade(title, text, offers); };
+    box.append(b);
+  }
+  if (!box.children.length) { const p = document.createElement('p'); p.textContent = 'Nothing left to trade here.'; box.append(p); }
+  setTimeout(() => (box.querySelector('button:not(:disabled)') || $('tradeClose')).focus(), 30);
+}
+function closeTrade() { $('tradeModal').hidden = true; canvas.focus(); }
+$('tradeClose').onclick = closeTrade;
+$('tradeModal').addEventListener('pointerdown', e => { if (e.target === $('tradeModal')) closeTrade(); });
+function gotArt(k, line) { ART[k].got = true; burst(V(P.pos.x, heightAt(P.pos.x, P.pos.z) + 1.3, P.pos.z), 0xffe0f0, 3); chime(); toast(`You found ${ART[k].name.toLowerCase()}.`); if (line) setTimeout(() => whisper(line), 1200); refreshHUD(); }
+const sellWood = n => ({ label: `Sell 3 wood`, sub: 'Firewood is always wanted.', cost: `+${n} coins`, ok: () => W.wood >= 3, buy: () => { W.wood -= 3; W.coins += n; tone(1568, 0.12, 'square', 0.03); } });
+function peddlerTrade() {
+  openTrade('The peddler’s stump', 'A bundle of straw and a few coins wait on the stump. Nobody comes up here but him.', [
+    sellWood(2),
+    { label: 'Straw rope', sub: 'Thick enough to bind a shrine gate. He wants wood and something sweet.', cost: '−4 wood −1 treat', once: true, big: true, gone: ART.rope.got, ok: () => W.wood >= 4 && W.treats >= 1, buy: () => { W.wood -= 4; W.treats -= 1; gotArt('rope', 'Rope like that held me to the tree. It will hold the gate now.'); } },
+  ]);
+}
+function shopTrade() {
+  openTrade('Old Ume’s stall', '“Outcast or not, coins are coins. Don’t stare at anything, dear. People talk.”', [
+    { label: 'Shrine bell', sub: 'Brass, a little green. “From the old mountain shrine, they say.”', cost: '−10 coins', once: true, big: true, gone: ART.bell.got, ok: () => W.coins >= 10, buy: () => { W.coins -= 10; gotArt('bell', 'My bell. They sold my bell.'); } },
+    { label: 'Rice bundle', sub: 'Three days of food for a wispling.', cost: '−2 coins · +3 food', ok: () => W.coins >= 2, buy: () => { W.coins -= 2; W.food += 3; tone(880, 0.1, 'triangle', 0.04); } },
+    { label: 'Sweet dango', sub: 'She likes these.', cost: '−2 coins · +1 treat', ok: () => W.coins >= 2, buy: () => { W.coins -= 2; W.treats += 1; tone(880, 0.1, 'triangle', 0.04); } },
+    sellWood(3),
+  ]);
+}
+function hanaTalk() {
+  if (ART.charm.got) return toast('Hana: “Did the charm work? Grandma says it keeps the bad ones away.”');
+  openTrade('Hana', '“You’re the one from the mountain! Grandma says not to talk to you. Do you have sweets? I’ll trade you my charm. It’s a real one.”', [
+    { label: 'Give her 2 treats', sub: 'She pulls a paper charm from her sleeve.', cost: '−2 treats', once: true, big: true, ok: () => W.treats >= 2, buy: () => { W.treats -= 2; gotArt('charm', 'A child gave you that? A child, from that village?'); closeTrade(); } },
+  ]);
+}
+
+// the pond's secret: her hairpin glints in the reeds at night
+const hairpinIt = (() => {
+  const g = new THREE.Group(); const x = POND.x + 2.6, z = POND.z - 1.2; placeY(g, x, z); scene.add(g);
+  const pin = M(new THREE.CylinderGeometry(0.012, 0.012, 0.3, 5), mat(0xe8d0a0), 0, 0.12, 0, g); pin.rotation.z = 1.2;
+  M(new THREE.SphereGeometry(0.05, 8, 6), mat(0xd9483b, { emissive: 0x801020, emissiveIntensity: 0.5 }), 0.13, 0.17, 0, g);
+  const gl = glow(0xfff0c0, 1.2, 0.9); gl.position.y = 0.25; g.add(gl);
+  g.visible = false;
+  return addItem({ type: 'hairpin', x, z, reach: 1.3, obj: g, gl });
+})();
+
+// ---------------------------------------------------------------- the village (chapter two)
+const townSign = (() => {
+  const x = 2.2, z = 23.4, g = new THREE.Group(); placeY(g, x, z); scene.add(g); g.rotation.y = 0.3;
+  M(new THREE.CylinderGeometry(0.07, 0.08, 1.8, 6), mat(0x6b4a3a), 0, 0.9, 0, g);
+  const b = M(new THREE.BoxGeometry(1.2, 0.32, 0.06), mat(0xe8c99a), 0.25, 1.5, 0, g); b.rotation.z = -0.12;
+  M(new THREE.ConeGeometry(0.18, 0.3, 3), mat(0xe8c99a), 0.95, 1.42, 0, g).rotation.z = -Math.PI / 2 - 0.12;
+  colliders.push({ x, z, r: 0.3 }); g.visible = false;
+  return addItem({ type: 'toTown', x, z, reach: 1.5, obj: g });
+})();
+const townHouseCols = houses.map(h => ({ x: h.x, z: h.z, r: 1.35 * h.g.scale.x }));
+townHouseCols.push({ x: 4, z: 85, r: 2.7 });
+colliders.push(...townHouseCols);
+const TOWN = { x0: -38, x1: 38, z0: 60, z1: 106 };
+function townFree(x, z, pad) { if (x < TOWN.x0 + 2 || x > TOWN.x1 - 2 || z < TOWN.z0 + 2 || z > TOWN.z1 - 2) return false; for (const c of townHouseCols) if (Math.hypot(x - c.x, z - c.z) < c.r + pad) return false; return true; }
+function townPoint(pad = 1.2, near, within = 99) { for (let i = 0; i < 60; i++) { const x = near ? near.x + (R() - 0.5) * within * 2 : lerp(TOWN.x0, TOWN.x1, R()), z = near ? near.z + (R() - 0.5) * within * 2 : lerp(TOWN.z0, TOWN.z1, R()); if (townFree(x, z, pad)) return V(x, 0, z); } return V(0, 0, 66); }
+const TOWN_GATE = (() => { let best = V(0, 0, 64), bs = -1; for (let x = -24; x <= 24; x += 4) for (const z of [63, 66]) { let m = 99; for (const c of townHouseCols) m = Math.min(m, Math.hypot(x - c.x, z - c.z) - c.r); if (m > bs) { bs = m; best = V(x, 0, z); } } return best; })();
+const townBack = (() => {
+  const x = TOWN_GATE.x + 1.6, z = TOWN_GATE.z - 1.2, g = new THREE.Group(); placeY(g, x, z); scene.add(g);
+  M(new THREE.CylinderGeometry(0.07, 0.08, 1.8, 6), mat(0x6b4a3a), 0, 0.9, 0, g);
+  M(new THREE.BoxGeometry(1.2, 0.32, 0.06), mat(0xe8c99a), 0, 1.5, 0, g);
+  return addItem({ type: 'toMountain', x, z, reach: 1.5, obj: g });
+})();
+// villagers: wary, kind enough, and blind to what walks among them
+const villagers = [];
+const VLINES = ['“You’re the one they sent up the mountain.”', '“Don’t track ash in here.”', '“Spirits? Just stories for children.”', '“My grandmother left offerings up there. Nobody does now.”', '“Did you hear that? Like a bell, from the mountain.”', '“Buy something or move along.”', '“The rice is late this year. The mountain is angry, they say.”'];
+function makeVillager(x, z, o) {
+  const g = new THREE.Group(); scene.add(g);
+  const skin = mat(0xffe6d8), kim = mat(o.kimono), obi = mat(o.obi), hairM = mat(o.hair);
+  M(new THREE.CylinderGeometry(0.2, 0.32, 0.95, 12), kim, 0, 0.5, 0, g);
+  M(new THREE.CylinderGeometry(0.21, 0.22, 0.14, 12), obi, 0, 1.0, 0, g);
+  M(new THREE.CylinderGeometry(0.17, 0.2, 0.36, 12), kim, 0, 1.24, 0, g);
+  for (const s of [-1, 1]) { const a = M(new THREE.BoxGeometry(0.1, 0.42, 0.22), kim, s * 0.24, 1.18, 0, g); a.rotation.z = s * 0.12; M(new THREE.SphereGeometry(0.045, 8, 6), skin, s * 0.26, 0.95, 0.04, g); }
+  const head = new THREE.Group(); head.position.y = 1.6; g.add(head);
+  const face = M(new THREE.SphereGeometry(0.17, 16, 12), skin, 0, 0, 0, head); face.scale.set(0.95, 1.05, 0.95);
+  const cap = M(new THREE.SphereGeometry(0.19, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), hairM, 0, 0.02, -0.03, head); cap.rotation.x = -0.3;
+  if (o.bun) M(new THREE.SphereGeometry(0.08, 8, 6), hairM, 0, 0.15, -0.13, head);
+  if (o.buns) for (const s of [-1, 1]) M(new THREE.SphereGeometry(0.075, 8, 6), hairM, s * 0.15, 0.13, -0.04, head);
+  if (o.hat) M(new THREE.ConeGeometry(0.44, 0.2, 14), mat(0xd9c08a), 0, 0.2, 0, head);
+  faceShell(face, 0.17, faceTex({ iris: o.iris || '#5a4636', lash: '#2a2238', brow: '#3b2a3f', mouth: o.mouth || 'smile' }));
+  rimify(g); g.scale.setScalar(o.child ? 0.72 : 1);
+  const v = { g, pos: V(x, 0, z), target: V(x, 0, z), wait: R() * 3, face: R() * 6.28, ph: R() * 6, still: !!o.still, child: !!o.child, name: o.name };
+  v.it = addItem({ type: o.type || 'person', x, z, pos: v.pos, reach: 1.1, obj: g, v });
+  g.position.set(x, heightAt(x, z), z); villagers.push(v); return v;
+}
+const KIMONO = [[0x6c7fb0, 0x3a3560, 0x3b2a3f], [0xc9805a, 0x6b4a3a, 0x2a2238], [0x8fae7a, 0xf2c45a, 0x4a3a30], [0xb88aa8, 0x6c5a8f, 0x1d1418], [0x9a8f80, 0xd9483b, 0x5a4a40]];
+for (let i = 0; i < 8; i++) { const p = townPoint(1.5); const k = KIMONO[i % KIMONO.length]; makeVillager(p.x, p.z, { kimono: k[0], obi: k[1], hair: k[2], hat: i % 3 === 0, bun: i % 3 === 1, name: 'Villager' }); }
+// the stall and the well
+const SHOP = (() => { for (let i = 0; i < 80; i++) { const p = townPoint(4.5, TOWN_GATE, 14); const d = Math.hypot(p.x - TOWN_GATE.x, p.z - TOWN_GATE.z); if (d > 7 && p.z > TOWN_GATE.z + 3) return p; } return townPoint(4.5); })(), WELL = townPoint(4, V(TOWN_GATE.x, 0, TOWN_GATE.z + 16), 12);
+{
+  const g = new THREE.Group(); placeY(g, SHOP.x, SHOP.z); g.rotation.y = Math.atan2(TOWN_GATE.x - SHOP.x, TOWN_GATE.z - SHOP.z); scene.add(g);
+  M(new THREE.BoxGeometry(2.4, 0.9, 0.9), mat(0x8a5a44), 0, 0.45, 0, g);
+  for (const sx of [-1.1, 1.1]) M(new THREE.CylinderGeometry(0.06, 0.06, 2.3, 6), mat(0x6b4a3a), sx, 1.15, -0.35, g);
+  for (let i = 0; i < 5; i++) { const a = M(new THREE.BoxGeometry(0.5, 0.06, 1.3), mat(i % 2 ? 0xfff8ee : 0x4f6f80), -1 + i * 0.5, 2.25, 0.1, g); a.rotation.x = 0.35; }
+  [[0xf2c45a, -0.7], [0xe05a6a, -0.3], [0xa9dca4, 0.1], [0xfff8ee, 0.5]].forEach(([c, x]) => M(new THREE.SphereGeometry(0.12, 8, 6), mat(c), x, 0.98, 0.1, g));
+  colliders.push({ x: SHOP.x, z: SHOP.z, r: 1.3 });
+  addItem({ type: 'shop', x: SHOP.x, z: SHOP.z, reach: 1.8, obj: g });
+  const back = g.localToWorld(V(0, 0, -0.9)); makeVillager(back.x, back.z, { kimono: 0x6c5a8f, obi: 0x3a3560, hair: 0xd8d0d8, bun: true, still: true, name: 'Ume', type: 'ume' }).face = g.rotation.y;
+}
+{
+  const g = new THREE.Group(); placeY(g, WELL.x, WELL.z); scene.add(g);
+  M(new THREE.CylinderGeometry(0.8, 0.85, 0.8, 14, 1, true), mat(0xbdb5c9, { side: THREE.DoubleSide }), 0, 0.4, 0, g);
+  M(new THREE.CircleGeometry(0.78, 14), basic(0x1d1a2b), 0, 0.3, 0, g).rotation.x = -Math.PI / 2;
+  for (const sx of [-0.8, 0.8]) M(new THREE.CylinderGeometry(0.06, 0.06, 1.8, 6), mat(0x6b4a3a), sx, 0.9, 0, g);
+  const rf = M(new THREE.ConeGeometry(1.2, 0.6, 4), mat(0x3c3550), 0, 2.0, 0, g); rf.rotation.y = Math.PI / 4;
+  colliders.push({ x: WELL.x, z: WELL.z, r: 0.95 });
+  const hp = townPoint(0.5, WELL, 2.2); makeVillager(hp.x, hp.z, { kimono: 0xd9483b, obi: 0xfff8ee, hair: 0x2a2238, buns: true, child: true, still: true, name: 'Hana', type: 'hana', mouth: 'smile' });
+}
+// the old storehouse by the village shrine tower, where her mirror ended up
+const MIRROR_AT = V(4, 0, 88.6);
+const mirrorIt = (() => {
+  const g = new THREE.Group(); placeY(g, MIRROR_AT.x, MIRROR_AT.z); scene.add(g);
+  M(new THREE.BoxGeometry(0.8, 0.7, 0.6), mat(0xbdb5c9), 0, 0.35, 0, g);
+  const d = M(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 20), mat(0xc8d8e8, { emissive: 0x6a8aa8, emissiveIntensity: 0.5 }), 0, 0.95, 0, g); d.rotation.x = Math.PI / 2 - 0.3;
+  const gl = glow(0xbfe4ff, 1.4, 0.7); gl.position.y = 0.95; g.add(gl);
+  colliders.push({ x: MIRROR_AT.x, z: MIRROR_AT.z, r: 0.5 });
+  return addItem({ type: 'mirror', x: MIRROR_AT.x, z: MIRROR_AT.z, reach: 1.4, obj: g });
+})();
+// the hollow ones: tall, masked, and only you can see them
+const maskTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 160; const x = c.getContext('2d'); x.fillStyle = '#f4f0ea'; x.beginPath(); x.ellipse(64, 80, 58, 76, 0, 0, 7); x.fill(); x.strokeStyle = '#1a1420'; x.lineWidth = 5; x.lineCap = 'round'; for (const s of [-1, 1]) { x.beginPath(); x.arc(64 + s * 24, 74, 14, Math.PI * 1.15, Math.PI * 1.85); x.stroke(); } x.strokeStyle = '#b0202c'; x.lineWidth = 4; x.beginPath(); x.arc(64, 96, 24, Math.PI * 0.2, Math.PI * 0.8); x.stroke(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const hollows = [];
+function makeHollow(x, z, sentinel) {
+  const g = new THREE.Group(); scene.add(g);
+  const robe = mat(0x241c33, { emissive: 0x150c22, emissiveIntensity: 0.5 }), pale = mat(0xe8e0ea);
+  M(new THREE.ConeGeometry(0.5, 2.4, 12, 1, true), mat(0x241c33, { emissive: 0x150c22, emissiveIntensity: 0.5, side: THREE.DoubleSide }), 0, 1.2, 0, g);
+  M(new THREE.CylinderGeometry(0.045, 0.07, 0.55, 6), pale, 0, 2.55, 0, g);
+  for (const s of [-1, 1]) { const a = M(new THREE.CylinderGeometry(0.035, 0.03, 1.7, 6), robe, s * 0.3, 1.45, 0.02, g); a.rotation.z = s * 0.06; M(new THREE.ConeGeometry(0.05, 0.28, 5), pale, s * 0.35, 0.5, 0.02, g).rotation.x = Math.PI; }
+  const head = new THREE.Group(); head.position.y = 2.95; g.add(head);
+  M(new THREE.SphereGeometry(0.2, 12, 10), robe, 0, 0, 0, head);
+  const mask = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.43), new THREE.MeshBasicMaterial({ map: maskTex, transparent: true })); mask.position.z = 0.19; head.add(mask);
+  const h = { g, head, pos: V(x, 0, z), target: V(x, 0, z), wait: R() * 5, sentinel, noticed: 0, face: R() * 6.28, ph: R() * 6 };
+  g.position.set(x, heightAt(x, z), z); hollows.push(h); return h;
+}
+makeHollow(MIRROR_AT.x - 1.7, MIRROR_AT.z + 0.6, true); makeHollow(MIRROR_AT.x + 1.7, MIRROR_AT.z + 0.5, true);
+for (let i = 0; i < 4; i++) { const p = townPoint(1.5); makeHollow(p.x, p.z, false); }
+const houseMeshes = houses.flatMap(h => [h.body, h.roof]);
+let staring = false, sawTown = false, sawStare = false;
+function updateTown(dt) {
+  const walk = (o, sp) => { if (o.wait > 0) { o.wait -= dt; return false; } const dx = o.target.x - o.pos.x, dz = o.target.z - o.pos.z, d = Math.hypot(dx, dz); if (d < 0.3) { o.wait = 2 + R() * 5; o.target.copy(townPoint(1.2)); return false; } const st = Math.min(d, sp * dt); o.pos.x += dx / d * st; o.pos.z += dz / d * st; o.face = Math.atan2(dx, dz); return true; };
+  for (const v of villagers) {
+    const mv = v.still ? false : walk(v, 1.1);
+    if (v.still || v.wait > 0) { const dp = Math.hypot(P.pos.x - v.pos.x, P.pos.z - v.pos.z); if (dp < 4) v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); }
+    v.g.position.set(v.pos.x, heightAt(v.pos.x, v.pos.z) + (mv ? Math.abs(Math.sin(time * 8 + v.ph)) * 0.04 : 0), v.pos.z); v.g.rotation.y = lerpAngle(v.g.rotation.y, v.face, 0.1);
+  }
+  for (const h of hollows) {
+    if (!h.sentinel) walk(h, 0.55);
+    if (h.noticed > 0.05) h.face = lerpAngle(h.face, Math.atan2(P.pos.x - h.pos.x, P.pos.z - h.pos.z), 0.03 * h.noticed);
+    h.noticed = Math.max(0, h.noticed - dt * 0.3);
+    h.g.position.set(h.pos.x, heightAt(h.pos.x, h.pos.z) + 0.1 + Math.sin(time * 1.1 + h.ph) * 0.08, h.pos.z); h.g.rotation.y = lerpAngle(h.g.rotation.y, h.face, 0.05);
+    h.head.rotation.z = Math.sin(time * 0.7 + h.ph) * 0.18;
+  }
+  // don't look at them: whatever sits in the middle of your view, the villagers notice you staring at
+  staring = false;
+  if (state === 'play') {
+    const cp = camera.position, cf = camera.getWorldDirection(V());
+    for (const h of hollows) {
+      const hp = h.head.getWorldPosition(V()), v = hp.clone().sub(cp), d = v.length(); if (d > 30) continue; v.divideScalar(d);
+      if (Math.acos(clamp(v.dot(cf), -1, 1)) > 0.15) continue;
+      ray.set(cp, v); ray.far = d; const blocked = ray.intersectObjects(houseMeshes, false).length > 0; ray.far = Infinity; if (blocked) continue;
+      staring = true; h.noticed = Math.min(1, h.noticed + dt * 2); suspicion += dt * (24 + 36 * (1 - d / 30));
+    }
+    if (!staring) suspicion = Math.max(0, suspicion - dt * 7);
+    if (staring && !sawStare) { sawStare = true; whisper('Don’t look at them. The villagers can tell when you see things.'); }
+    if (suspicion >= 100) { suspicion = 100; kickOut(); }
+  }
+}
+function travel(to) {
+  if (state !== 'play') return;
+  if (to === 'town' && day < townBanDay) return toast('The villagers are still angry with you. Wait until morning.');
+  if (P.holding) { const s = P.holding; putDown(); toast(`The ${s.kind.name} wispling hops down. Wisplings won’t leave the mountain.`); }
+  state = 'travel'; P.work = null; P.target = null; P.pendingIt = null; keys.clear(); $('fade').style.opacity = 1; tone(392, 0.5, 'sine', 0.03);
+  setTimeout(() => {
+    if (to === 'town') { P.where = 'town'; P.pos.set(TOWN_GATE.x, 0, TOWN_GATE.z + 1.5); yaw = Math.PI; }
+    else { P.where = 'mountain'; P.pos.set(townSign.x - 0.8, 0, townSign.z - 2.2); yaw = 0; }
+    pitch = -0.05; suspicion = 0; state = 'play'; $('fade').style.opacity = 0;
+    if (to === 'town' && !sawTown) { sawTown = true; setTimeout(() => toast('The village. Find the stall, the girl by the well, and the old storehouse by the tower.'), 800); setTimeout(() => toast('Some of the tall ones aren’t people. Don’t look straight at them.'), 4800); }
+    refreshHUD();
+  }, 900);
+}
+function kickOut() {
+  townBanDay = day + 1; staring = false;
+  toast('“Witch! Seeing things again!” The villagers chase you out.');
+  travel('mountain');
+  setTimeout(() => { toast('They will calm down by morning.'); whisper('They chased me up here too, once.'); }, 1800);
+}
 
 // ---------------------------------------------------------------- endings
 function startEruption() {
@@ -1687,7 +2219,7 @@ function igniteHouse(h, at) {
 }
 function startWin() {
   wonOnce = true; if (L.carrying) ladyPutDown(); state = 'won'; endT = 0; P.work = null; $('prompt').classList.remove('on');
-  whisper('Eight little lights. Enough. Thank you, little outcast.'); chime(); setTimeout(chime, 400);
+  whisper('My bell. My mirror. My house. I can rest now. Thank you, little outcast.'); chime(); setTimeout(chime, 400);
   camTargetPos = V(3, 5, -1); camTargetLook = V(0, 3.5, -12);
 }
 function updateWin(dt) {
@@ -1705,7 +2237,7 @@ function showEnd(won) {
   freeMouse(); const e = $('end'); e.hidden = false;
   if (won) {
     $('endTitle').textContent = 'The mountain hums again'; $('endTitle').style.color = 'var(--dusk)';
-    $('endText').textContent = `By day ${day}, ${spirits.length} wisplings sleep warm in huts you built. She bows to you, very gently. Then she turns to look down at the village, and smiles.`;
+    $('endText').textContent = `By day ${day} her shrine is whole again: a new rope, a bell that rings, her mirror and her hairpin home. ${spirits.length} wisplings sleep warm in huts you built. She bows to you, very gently. Then she turns to look down at the village, and smiles.`;
     $('keepBtn').hidden = false;
   } else {
     $('endTitle').textContent = 'The mountain remembers'; $('endTitle').style.color = '';
@@ -1726,6 +2258,7 @@ $('startBtn').onclick = () => {
 };
 $('helpBtn').onclick = () => { if (state !== 'play') return; freeMouse(); $('title').hidden = false; $('startBtn').textContent = 'Back to the mountain'; state = 'paused'; keys.clear(); };
 $('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); audioOn(); jump(); });
+$('tossBtn').addEventListener('pointerdown', e => { e.preventDefault(); audioOn(); tossSpirit(); });
 $('muteBtn').onclick = () => { muted = !muted; $('muteBtn').textContent = muted ? '×' : '♪'; $('muteBtn').setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound'); };
 
 // Characters menu
@@ -1767,12 +2300,12 @@ let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  update(dt);
+  const steps = window.__ts || 1; for (let i = 0; i < steps; i++) update(dt);
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite };
+window.__shrine = { get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite };
 })();
 </script>
