@@ -1602,7 +1602,7 @@ function playUppiesVo(s, vol) {
   const list = (uppiesBuf[s.kind && s.kind.name || s.kind] || []).filter(Boolean); if (!list.length) return false;
   try {
     const src = AC.createBufferSource(); src.buffer = list[Math.floor(R() * list.length)]; src.playbackRate.value = 0.97 + R() * 0.08;
-    const g = AC.createGain(); g.gain.value = clamp(vol, 0, 1) * 0.85; src.connect(g); g.connect(AC.destination); src.start(); return true;
+    const g = AC.createGain(); g.gain.value = clamp(vol, 0, 1) * 0.38; /* same loudness (RMS) as the loudest game sound, the axe chop */ src.connect(g); g.connect(AC.destination); src.start(); return true;
   } catch (e) { return false; }
 }
 let voicePick = null;
