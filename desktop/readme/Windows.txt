@@ -1,0 +1,4 @@
+Ash Mountain Shrine (prototype) for Windows
+Double-click "Ash Mountain Shrine.exe". Keep it inside this folder: it needs the files next to it.
+Windows may show "Windows protected your PC" because the app isn't signed. Click "More info", then "Run anyway".
+Runs fully offline. F11 toggles fullscreen.

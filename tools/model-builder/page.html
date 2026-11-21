@@ -1,0 +1,47 @@
+<!doctype html><html><body style="margin:0;background:#6b6b6b">
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/","@pixiv/three-vrm":"/node_modules/@pixiv/three-vrm/lib/three-vrm.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { exportVRM } from './build.js';
+import { CHARS, LADY } from './chars.js';
+const b64 = buf => { let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+window.buildAll = async (only) => {
+  const out = {};
+  for (const c of [...CHARS, LADY]) { if (only && !only.includes(c.id)) continue; out[c.id] = b64(await exportVRM(c)); }
+  return out;
+};
+const W = 520, H = 640;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); renderer.setSize(W, H); renderer.setPixelRatio(window.PR || 1); document.body.appendChild(renderer.domElement);
+window.renderVRM = async (b64s, views, opts = {}) => {
+  const bin = Uint8Array.from(atob(b64s), c => c.charCodeAt(0)).buffer;
+  const loader = new GLTFLoader(); loader.register(p => new VRMLoaderPlugin(p));
+  const gltf = await loader.parseAsync(bin, ''); const vrm = gltf.userData.vrm;
+  const info = { meta: vrm.meta && vrm.meta.name, bones: Object.keys(vrm.humanoid.humanBones).length, expressions: vrm.expressionManager ? vrm.expressionManager.expressions.map(e => e.expressionName) : [], mtoon: 0 };
+  vrm.scene.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => { if (m.isMToonMaterial) info.mtoon++; }); });
+  VRMUtils.rotateVRM0(vrm);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(opts.bg || 0x6b6b6b);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9)); const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(0.6, 1.5, 2.0); scene.add(dl);
+  scene.add(vrm.scene);
+  if (opts.only) vrm.scene.traverse(o => { if (o.isMesh) o.visible = opts.only.some(n => o.name.includes(n)); });
+  const h = vrm.humanoid;
+  if (!opts.tpose) { h.getNormalizedBoneNode('leftUpperArm').rotation.z = -1.15; h.getNormalizedBoneNode('rightUpperArm').rotation.z = 1.15; h.getNormalizedBoneNode('leftLowerArm').rotation.z = -0.15; h.getNormalizedBoneNode('rightLowerArm').rotation.z = 0.15; }
+  if (opts.blink) vrm.expressionManager.setValue('blink', 1);
+  if (opts.expr) vrm.expressionManager.setValue(opts.expr, 1);
+  if (opts.walk) { h.getNormalizedBoneNode('leftUpperLeg').rotation.x = 0.5; h.getNormalizedBoneNode('rightUpperLeg').rotation.x = -0.5; h.getNormalizedBoneNode('leftLowerLeg').rotation.x = 0.4; h.getNormalizedBoneNode('leftUpperArm').rotation.x = 0.6; }
+  vrm.update(0.016);
+  const box = new THREE.Box3().setFromObject(vrm.scene), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+  info.size = sz.toArray().map(v => +v.toFixed(3));
+  const cam = new THREE.PerspectiveCamera(opts.fov || 24, W / H, 0.01, 50);
+  const shots = [];
+  for (const az of views) {
+    const d = (opts.dist || 2.6) * sz.y; cam.position.set(c.x + Math.sin(az) * d, c.y + (opts.camY || 0.08) * sz.y, c.z + Math.cos(az) * d);
+    const tgt = opts.zoomHead ? new THREE.Vector3(0, box.max.y - sz.y * 0.3, 0) : c; if (opts.zoomHead) cam.position.set(Math.sin(az) * d * 0.45, tgt.y, Math.cos(az) * d * 0.45);
+    cam.lookAt(tgt); renderer.render(scene, cam); shots.push(renderer.domElement.toDataURL('image/png'));
+  }
+  VRMUtils.deepDispose(vrm.scene);
+  return { info, shots };
+};
+window.ready = true;
+</script></body></html>

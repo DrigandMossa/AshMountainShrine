@@ -1,0 +1,3 @@
+Ash Mountain Shrine (prototype) for Linux x64
+Run ./ash-mountain-shrine from this folder. If it refuses to start with a sandbox error, run: ./ash-mountain-shrine --no-sandbox
+Runs fully offline. F11 toggles fullscreen.

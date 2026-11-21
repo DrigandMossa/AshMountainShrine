@@ -1,0 +1,6 @@
+Ash Mountain Shrine (prototype) for macOS
+The app is not signed by Apple, so macOS will block it at first. After unzipping, open Terminal and run:
+  xattr -cr "/path/to/Ash Mountain Shrine.app"
+(drag the app onto the Terminal window to fill in the path), then right-click the app and choose Open.
+Apple Silicon Macs (M1 and later) use the arm64 build; older Intel Macs use the x64 build.
+Runs fully offline.
