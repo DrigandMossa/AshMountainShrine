@@ -12,6 +12,8 @@ Controls: WASD/arrows to move, Shift to run, mouse to look (click to lock), E or
 
 **Chapter one:** wake five wisplings and give each a bed. **Chapter two:** she gives you her spirit axe and follows you from the trees. Restore her shrine with five lost artifacts from the mountain and the village below, where you must not stare at the hollow ones.
 
+**At home:** mend your cabin and step inside to build a kitchen, where wisplings set to *Cook treats* turn food into dango, and a long dinner table. Once the table exists, the wisplings eat there once a day at sunset: they gather and drum on the table until you serve them. Now and then an evil spirit rises at the edge of the meadow, and the lady (whose mask now shows how she feels) goes out to drive it off.
+
 ## Layout
 
 | Path | What it is |
@@ -33,4 +35,4 @@ This produces Windows, macOS (Apple Silicon and Intel) and Linux packages in `di
 
 ## Credits
 
-Three.js (MIT), three-vrm (MIT), Electron (MIT). Fonts are Yuji Syuku and Zen Maru Gothic, under the SIL Open Font License.
+Three.js (MIT), three-vrm (MIT), Electron (MIT). The wisplings' "uppies!" voice lines are Drig's own recordings. Fonts are Yuji Syuku and Zen Maru Gothic, under the SIL Open Font License.

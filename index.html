@@ -60,6 +60,7 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
 .job button{width:28px;height:28px;border-radius:8px;border:1.5px solid var(--line);background:#fff;font-size:17px;font-weight:900;color:var(--ink);line-height:1;padding:0}
 .job button:hover{background:#ffeef3}
 .job.rest{color:var(--dusk)}
+.job.locked span{opacity:.45}.job.locked .plus{opacity:.45}
 .btn{border:none;border-radius:10px;background:var(--dusk);color:var(--paper);font-weight:700;padding:8px 10px;font-size:13px}
 .btn:hover{filter:brightness(1.1)}
 .btn:disabled{opacity:.45;cursor:default;filter:none}
@@ -190,6 +191,7 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
     <div class="job" data-job="wood"><span>Chop wood</span><button class="minus" aria-label="One fewer woodcutter">−</button><b id="j-wood">0</b><button class="plus" aria-label="One more woodcutter">+</button></div>
     <div class="job" data-job="hunt"><span>Hunt &amp; forage</span><button class="minus" aria-label="One fewer hunter">−</button><b id="j-hunt">0</b><button class="plus" aria-label="One more hunter">+</button></div>
     <div class="job" data-job="build"><span>Build</span><button class="minus" aria-label="One fewer builder">−</button><b id="j-build">0</b><button class="plus" aria-label="One more builder">+</button></div>
+    <div class="job" data-job="cook" id="jobCook" title="Needs a kitchen in your cabin"><span>Cook treats</span><button class="minus" aria-label="One fewer cook">−</button><b id="j-cook">0</b><button class="plus" aria-label="One more cook">+</button></div>
     <div class="job rest"><span>Resting</span><i></i><b id="j-rest">0</b><i></i></div>
   </div>
   <button class="btn" id="planHut">Plan a spirit hut · 6 wood</button>
@@ -261,6 +263,8 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
       <li>Sell wood at the peddler's stump for coins. Cook food into treats at the campfire.</li>
       <li>Offer coins and treats at the shrine. Enough of both wakes a wispling.</li>
       <li>Give wisplings jobs, keep the pantry stocked, and build each pair a hut.</li>
+      <li>Mend your cabin, then step inside. Build a kitchen (set wisplings to <b>Cook treats</b>) and a dinner table.</li>
+      <li>Once the table is built, the wisplings eat there once a day at sunset. They gather and drum on the table until you serve them, 1 food each.</li>
       <li>Tap a wispling (or press <b>E</b>) to pick them up. When one asks for <b>uppies</b>, go carry them before she does. While holding one, press <b>Q</b> or right-click (or tap Toss) to throw them up and catch them.</li>
       <li>Bring her something every day. If her wrath fills, the mountain wakes. Wake five wisplings and give each a bed to finish the first chapter.</li>
     </ul>
@@ -336,7 +340,12 @@ const PATHS = [[0, -9, 0, 2], [0, 2, 9, 5], [0, 2, -3, 20], [0, 2, -11, 5]];
 const POND = { x: -14, z: 8, r: 3.2 };
 function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az; const t = clamp(((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz), 0, 1); return Math.hypot(px - ax - t * dx, pz - az - t * dz); }
 function noise(x, z) { return Math.sin(x * 0.35) * Math.cos(z * 0.3) * 0.25 + Math.sin(x * 0.13 + z * 0.21) * 0.35 + Math.sin(x * 0.9 + z * 0.7) * 0.06; }
+// your cabin's inside is a room far under the hillside; heightAt() gives its floor (see 'inside your cabin')
+const HOME = { x: 150, z: 150, y: -80, w: 11, d: 8, h: 3.6 };
+const inHome = (x, z) => Math.abs(x - HOME.x) < HOME.w / 2 + 2 && Math.abs(z - HOME.z) < HOME.d / 2 + 2;
+let homeOn = false;
 function heightAt(x, z) {
+  if (homeOn && inHome(x, z)) return HOME.y;
   const r = Math.hypot(x, z), n = noise(x, z);
   let h = n * 0.6;
   if (r > 27) {
@@ -490,6 +499,108 @@ function updateCabinLook() {
   cabin.planks.visible = !cabin.built;
 }
 updateCabinLook();
+
+// ---------------------------------------------------------------- inside your cabin
+// Step through the cabin door and the screen fades into this room. Wisplings use the same door (Spirit.moveTo).
+const cabinPt = (lx, lz) => { const c = Math.cos(-0.3), s = Math.sin(-0.3); return { x: CABIN.x + lx * c + lz * s, z: CABIN.z - lx * s + lz * c }; };
+const OUT_DOOR = cabinPt(0.6, 2.5), OUT_STEP = cabinPt(0.6, 3.3);
+const IN_DOOR = { x: HOME.x + 2, z: HOME.z + HOME.d / 2 - 0.7 };
+const homeLight = new THREE.PointLight(0xffc88a, 0.6, 14, 1.6);
+const homeWinMat = new THREE.MeshBasicMaterial({ color: 0xbfd5ee });
+const kitchen = { type: 'kitchen', room: true, x: HOME.x - 3.9, z: HOME.z - 1.5, reach: 1.6, progress: 0, need: 8, incoming: 0, done: false };
+const table = { type: 'table', room: true, x: HOME.x + 0.9, z: HOME.z - 0.3, reach: 1.9, progress: 0, need: 6, incoming: 0, done: false };
+const SEATS = [], STOVE_SPOTS = [], plates = [], steams = [];
+let stoveFire = null;
+{
+  const g = new THREE.Group(); g.position.set(HOME.x, HOME.y, HOME.z); scene.add(g);
+  const hw = HOME.w / 2, hd = HOME.d / 2, H = HOME.h;
+  // indoors nothing casts or takes sun shadows
+  const I = (geo, m, x, y, z, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); return o; };
+  const B = (w, hh, d) => new THREE.BoxGeometry(w, hh, d);
+  const wall = mat(0xf6e6cc), beam = mat(0x8a5a44), floorM = mat(0xcf9f6e);
+  I(B(HOME.w + 0.4, 0.2, HOME.d + 0.4), floorM, 0, -0.1, 0);
+  for (let i = 1; i < 8; i++) I(B(HOME.w, 0.012, 0.035), mat(0xab7d55), 0, 0.006, -hd + i * HOME.d / 8);
+  I(B(HOME.w + 0.4, H, 0.2), wall, 0, H / 2, -hd - 0.1);
+  I(B(0.2, H, HOME.d + 0.4), wall, -hw - 0.1, H / 2, 0);
+  I(B(0.2, H, HOME.d + 0.4), wall, hw + 0.1, H / 2, 0);
+  const dx = IN_DOOR.x - HOME.x, dl = dx - 0.6 + hw, dr = hw - dx - 0.6;
+  I(B(dl, H, 0.2), wall, -hw + dl / 2, H / 2, hd + 0.1);
+  I(B(dr, H, 0.2), wall, hw - dr / 2, H / 2, hd + 0.1);
+  I(B(1.2, H - 2.15, 0.2), wall, dx, 2.15 + (H - 2.15) / 2, hd + 0.1);
+  const doorG = new THREE.Group(); doorG.position.set(dx, 0, hd - 0.02); g.add(doorG);
+  I(B(1.1, 2.1, 0.08), mat(0x7a5340), 0, 1.05, 0, doorG);
+  for (const yy of [0.5, 1.6]) I(B(1.0, 0.08, 0.1), beam, 0, yy, -0.03, doorG);
+  I(new THREE.SphereGeometry(0.05, 8, 6), mat(0xf2c45a), -0.38, 1.0, -0.08, doorG);
+  I(B(HOME.w + 0.4, 0.2, HOME.d + 0.4), mat(0xe9d3ae), 0, H + 0.1, 0);
+  for (let x = -hw + 1.1; x < hw; x += 2.2) I(B(0.22, 0.24, HOME.d), beam, x, H - 0.12, 0);
+  for (const [x, z] of [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]]) I(B(0.26, H, 0.26), beam, x * 0.985, H / 2, z * 0.985);
+  I(B(HOME.w, 0.14, 0.06), beam, 0, 0.07, -hd + 0.01); I(B(0.06, 0.14, HOME.d), beam, -hw + 0.01, 0.07, 0); I(B(0.06, 0.14, HOME.d), beam, hw - 0.01, 0.07, 0);
+  // windows show the sky outside
+  for (const [x, z, ry] of [[-1.2, -hd + 0.02, 0], [2.6, -hd + 0.02, 0], [hw - 0.02, 1.4, -Math.PI / 2]]) {
+    const wg = new THREE.Group(); wg.position.set(x, 1.75, z); wg.rotation.y = ry; g.add(wg);
+    I(new THREE.PlaneGeometry(1.2, 0.85), homeWinMat, 0, 0, 0.005, wg);
+    I(B(1.36, 0.08, 0.08), beam, 0, 0.46, 0.03, wg); I(B(1.36, 0.08, 0.08), beam, 0, -0.46, 0.03, wg);
+    I(B(0.08, 0.92, 0.08), beam, -0.64, 0, 0.03, wg); I(B(0.08, 0.92, 0.08), beam, 0.64, 0, 0.03, wg); I(B(0.04, 0.85, 0.05), beam, 0, 0, 0.03, wg); I(B(1.2, 0.04, 0.05), beam, 0, 0, 0.03, wg);
+  }
+  // paper lantern and the room light
+  I(new THREE.SphereGeometry(0.32, 14, 10), mat(0xfff0d0, { emissive: 0xffc080, emissiveIntensity: 0.5 }), 0.4, H - 0.75, 0).scale.set(1, 1.25, 1);
+  I(B(0.02, 0.5, 0.02), beam, 0.4, H - 0.25, 0);
+  homeLight.position.set(0.4, H - 1.0, 0); g.add(homeLight);
+  // rug, futon, a little shelf
+  I(B(4.8, 0.02, 2.9), mat(0xe9b9a4), table.x - HOME.x, 0.012, table.z - HOME.z);
+  I(B(4.4, 0.022, 2.5), mat(0xf6d6c4), table.x - HOME.x, 0.016, table.z - HOME.z);
+  const bed = new THREE.Group(); bed.position.set(hw - 1.15, 0, -hd + 1.35); g.add(bed);
+  I(B(1.5, 0.16, 2.2), mat(0xfff4ee), 0, 0.08, 0, bed); I(B(1.52, 0.07, 1.45), mat(0x86a3dc), 0, 0.19, 0.35, bed); I(B(0.7, 0.12, 0.36), mat(0xf7d6dc), 0, 0.22, -0.82, bed);
+  addItem({ type: 'bed', x: HOME.x + hw - 1.15, z: HOME.z - hd + 1.35, reach: 1.3, obj: bed });
+  colliders.push({ x: HOME.x + hw - 1.15, z: HOME.z - hd + 1.0, r: 0.6 }, { x: HOME.x + hw - 1.15, z: HOME.z - hd + 1.8, r: 0.6 });
+  addItem({ type: 'homeDoor', x: IN_DOOR.x, z: HOME.z + hd - 0.15, reach: 1.2, obj: doorG });
+  // kitchen against the west wall: counter, clay stove with two pots, a shelf of jars
+  const kg = new THREE.Group(); kg.position.set(kitchen.x - HOME.x, 0, kitchen.z - HOME.z); g.add(kg);
+  const kb = new THREE.Group(); kg.add(kb);
+  I(B(0.9, 0.84, 1.8), mat(0xc08a5b), -1.1, 0.42, -0.7, kb); I(B(0.98, 0.06, 1.88), mat(0xe8c99a), -1.1, 0.87, -0.7, kb);
+  I(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 14), mat(0xfff4ee), -1.0, 0.92, -1.1, kb);
+  for (let i = 0; i < 3; i++) I(new THREE.SphereGeometry(0.07, 8, 6), mat([0xf7d6dc, 0xfff4ee, 0xa9dca4][i]), -1.0 + (i - 1) * 0.08, 0.98, -1.1 + (i - 1) * 0.04, kb);
+  I(B(0.5, 0.04, 0.3), mat(0xa77a52), -1.05, 0.91, -0.35, kb);
+  I(B(1.0, 0.74, 1.3), mat(0xd9b38c), -1.1, 0.37, 0.95, kb); I(B(1.04, 0.06, 1.34), mat(0xc49a72), -1.1, 0.76, 0.95, kb);
+  for (const z of [0.68, 1.22]) { I(new THREE.CylinderGeometry(0.25, 0.2, 0.3, 14), mat(0x3b3346), -1.1, 0.93, z, kb); I(new THREE.CylinderGeometry(0.26, 0.26, 0.03, 14), mat(0x5b4a63), -1.1, 1.09, z, kb); const st = glow(0xffffff, 0.6, 0); st.position.set(-1.1, 1.3, z); kb.add(st); steams.push(st); }
+  stoveFire = I(B(0.05, 0.22, 0.4), new THREE.MeshBasicMaterial({ color: 0xff9a4a }), -0.59, 0.22, 0.95, kb);
+  I(B(0.3, 0.05, 1.7), mat(0xa77a52), -1.42, 1.75, -0.7, kb);
+  for (let i = 0; i < 4; i++) I(new THREE.CylinderGeometry(0.09, 0.1, 0.22, 10), mat([0xe05a6a, 0xf2c45a, 0x6cc25a, 0xa98ae8][i]), -1.42, 1.89, -1.3 + i * 0.38, kb);
+  const ks = new THREE.Group(); kg.add(ks);
+  for (const [sx, sz] of [[-1.55, -1.6], [-0.6, -1.6], [-1.55, 1.6], [-0.6, 1.6]]) I(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 5), mat(0xd9483b), sx, 0.55, sz, ks);
+  I(B(0.95, 0.02, 3.2), mat(0xfff8f3, { transparent: true, opacity: 0.55 }), -1.08, 0.02, 0, ks);
+  Object.assign(kitchen, { obj: kg, built: kb, stakes: ks });
+  addItem(kitchen); colliders.push({ x: kitchen.x - 1.1, z: kitchen.z - 1.0, r: 0.6 }, { x: kitchen.x - 1.1, z: kitchen.z - 0.2, r: 0.6 }, { x: kitchen.x - 1.1, z: kitchen.z + 0.95, r: 0.72 });
+  for (const z of [0.95, -0.7, 0.15]) STOVE_SPOTS.push({ x: kitchen.x - 0.25, z: kitchen.z + z });
+  // the long dinner table, sized for the chibi wisplings, with a seat cushion and a plate for each
+  const tg = new THREE.Group(); tg.position.set(table.x - HOME.x, 0, table.z - HOME.z); g.add(tg);
+  const tb = new THREE.Group(); tg.add(tb);
+  I(B(3.5, 0.09, 1.15), mat(0xc08a5b), 0, 0.44, 0, tb); I(B(3.56, 0.04, 1.21), mat(0xa77a52), 0, 0.395, 0, tb);
+  for (const [lx, lz] of [[-1.6, -0.45], [1.6, -0.45], [-1.6, 0.45], [1.6, 0.45]]) I(B(0.1, 0.4, 0.1), beam, lx, 0.2, lz, tb);
+  I(new THREE.CylinderGeometry(0.12, 0.1, 0.2, 10), mat(0xfff4ee), 0, 0.58, 0, tb); I(new THREE.SphereGeometry(0.09, 8, 6), mat(0xf7a8c0), 0, 0.74, 0, tb);
+  const seatLocal = [];
+  for (let i = 0; i < 5; i++) { const x = -1.4 + i * 0.7; seatLocal.push([x, -0.98, 0, x, -0.32], [x, 0.98, Math.PI, x, 0.32]); }
+  seatLocal.push([-2.18, 0, Math.PI / 2, -1.5, 0], [2.18, 0, -Math.PI / 2, 1.5, 0]);
+  for (const [sx, sz, face, px, pz] of seatLocal) {
+    I(new THREE.CylinderGeometry(0.26, 0.28, 0.08, 14), mat(0xe86f8a), sx, 0.04, sz, tb);
+    const pg = new THREE.Group(); pg.position.set(px, 0.49, pz); pg.visible = false; tg.add(pg);
+    I(new THREE.CylinderGeometry(0.17, 0.13, 0.03, 16), mat(0xffffff), 0, 0, 0, pg);
+    I(new THREE.SphereGeometry(0.09, 10, 8), mat(0xfff4ee), -0.04, 0.07, 0, pg).scale.set(1, 0.8, 1);
+    I(new THREE.SphereGeometry(0.06, 8, 6), mat(0xe05a6a), 0.07, 0.05, 0.04, pg);
+    plates.push(pg); SEATS.push({ x: table.x + sx, z: table.z + sz, face });
+  }
+  const ts = new THREE.Group(); tg.add(ts);
+  for (const [sx, sz] of [[-1.75, -0.6], [1.75, -0.6], [-1.75, 0.6], [1.75, 0.6]]) I(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 5), mat(0xd9483b), sx, 0.55, sz, ts);
+  I(B(3.5, 0.02, 1.15), mat(0xfff8f3, { transparent: true, opacity: 0.55 }), 0, 0.02, 0, ts);
+  Object.assign(table, { obj: tg, built: tb, stakes: ts });
+  addItem(table); for (const lx of [-1.2, 0, 1.2]) colliders.push({ x: table.x + lx, z: table.z, r: 0.62 });
+  refreshRoomSite(kitchen); refreshRoomSite(table);
+}
+homeOn = true;
+function refreshRoomSite(s) {
+  const f = s.progress / s.need;
+  s.built.visible = s.progress > 0; s.built.scale.set(1, s.done ? 1 : lerp(0.08, 0.85, f), 1); s.stakes.visible = !s.done;
+}
 
 // stockpile + campfire
 const STOCK = V(6.5, 0, 7.5);
@@ -696,8 +807,9 @@ function poseVRM(inst, p, dt) {
   const s = inst.signs, walk = Math.sin(p.walk || 0) * (p.walkAmt || 0);
   for (const [side, up, low, sg] of [['l', 'leftUpperArm', 'leftLowerArm', 1], ['r', 'rightUpperArm', 'rightLowerArm', -1]]) {
     const zs = s[side].z, xs = s[side].x;
-    const down = lerp(lerp(1.2, inst.upMax, p.armsUp || 0), 0.55, p.carry || 0) + (p.wave ? Math.sin(time * 14 + sg) * 0.25 * (p.armsUp || 0) : 0);
-    _e.set(xs * ((p.carry || 0) * 1.1 + walk * 0.35 * sg), 0, 0); _qa.setFromEuler(_e);
+    const carry = p.drum !== undefined ? 0.9 : (p.carry || 0);
+    const down = lerp(lerp(1.2, inst.upMax, p.armsUp || 0), 0.55, carry) + (p.wave ? Math.sin(time * 14 + sg) * 0.25 * (p.armsUp || 0) : 0);
+    _e.set(xs * (carry * 1.1 + walk * 0.35 * sg + (p.drum !== undefined ? p.drum * 2.4 - 0.3 : 0)), 0, 0); _qa.setFromEuler(_e);
     setBone(inst, up, 0, 0, zs * down, _qa);
   }
   setBone(inst, 'leftUpperLeg', walk * 0.55, 0, 0); setBone(inst, 'rightUpperLeg', -walk * 0.55, 0, 0);
@@ -725,6 +837,84 @@ function applySpiritModel(s) {
   if (p) { s.vrm = makeVRMInstance(p, false); s.body.add(s.vrm.wrap); }
 }
 let ladyVRM = null, playerVRM = null;
+// ---------------------------------------------------------------- her mask's expressions
+// The mask hides her face, so her feelings show on it: brows inked over the closed eyes, eyes that glow red when
+// she is angry, open dark eye holes when startled, tears, blush. Painted on small decals that sit on the mask.
+const LADY_FACES = ['angry', 'sad', 'surprised', 'happy', 'shy'];
+const ladyFace = { cur: 'calm', want: 'calm', a: 0, decals: [], tex: {}, hold: null, holdT: 0 };
+function paintLadyFace(name) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 150; const x = c.getContext('2d');
+  x.lineCap = 'round'; x.lineJoin = 'round';
+  const ink = '#2a2238', brow = (a, b, cx, cy, w) => { x.strokeStyle = ink; x.lineWidth = w; x.beginPath(); x.moveTo(a[0], a[1]); x.quadraticCurveTo(cx, cy, b[0], b[1]); x.stroke(); };
+  const blush = (r, a) => { const g = x.createRadialGradient(86, 114, 2, 86, 114, r); g.addColorStop(0, `rgba(255,110,150,${a})`); g.addColorStop(1, 'rgba(255,110,150,0)'); x.fillStyle = g; x.beginPath(); x.ellipse(86, 114, r, r * 0.55, 0, 0, 7); x.fill(); };
+  const drop = (cx, cy, s, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(cx, cy - s * 1.6); x.quadraticCurveTo(cx + s, cy - s * 0.2, cx + s, cy + s * 0.3); x.arc(cx, cy + s * 0.3, s, 0, Math.PI); x.quadraticCurveTo(cx - s, cy - s * 0.2, cx, cy - s * 1.6); x.fill(); };
+  if (name === 'angry') {
+    brow([10, 36], [116, 6], 60, 14, 14);
+    x.shadowColor = '#ff2040'; x.shadowBlur = 16; x.fillStyle = '#ff3a4c';
+    for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(16, 64); x.quadraticCurveTo(62, 30, 114, 40); x.quadraticCurveTo(66, 72, 16, 64); x.fill(); }
+    x.shadowBlur = 0; x.fillStyle = '#ffe0e6'; x.beginPath(); x.ellipse(66, 50, 6, 3, -0.25, 0, 7); x.fill();
+  } else if (name === 'sad') {
+    brow([10, 8], [114, 32], 64, 8, 11);
+    x.globalAlpha = 0.95; drop(82, 92, 12, '#6fb2ff'); x.globalAlpha = 0.6; drop(70, 132, 8, '#6fb2ff'); x.globalAlpha = 1;
+  } else if (name === 'surprised') {
+    brow([18, 12], [108, 8], 62, -10, 9);
+    x.fillStyle = '#140c1e'; x.beginPath(); x.ellipse(62, 54, 26, 28, 0, 0, 7); x.fill();
+    x.shadowColor = '#ffb0d0'; x.shadowBlur = 12; x.fillStyle = '#ffe6f0'; x.beginPath(); x.arc(66, 52, 8, 0, 7); x.fill(); x.shadowBlur = 0;
+  } else if (name === 'happy') {
+    brow([24, 22], [104, 20], 64, 4, 8);
+    blush(40, 0.85);
+    x.fillStyle = '#ffd6ec'; x.shadowColor = '#ff9ed1'; x.shadowBlur = 8; x.beginPath(); const sx = 112, sy = 30;
+    for (let i = 0; i < 8; i++) { const r = i % 2 ? 4 : 14, a = i * Math.PI / 4; x.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); } x.fill(); x.shadowBlur = 0;
+  } else if (name === 'shy') {
+    brow([14, 18], [112, 26], 64, 10, 8);
+    blush(44, 0.95); x.strokeStyle = '#d9506e'; x.lineWidth = 6;
+    for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(66 + i * 13, 122); x.lineTo(76 + i * 13, 104); x.stroke(); }
+    drop(114, 24, 9, '#a8d4ff');
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function attachLadyFace(inst) {
+  ladyFace.decals = [];
+  const head = inst.bones.head && inst.bones.head.node; if (!head) return;
+  let isOurs = false; inst.root.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (/mask/i.test(m.name || '')) isOurs = true; }); });
+  if (!isOurs) return; // a different lady model: no painted faces
+  for (const n of LADY_FACES) if (!ladyFace.tex[n]) ladyFace.tex[n] = paintLadyFace(n);
+  lady.g.updateMatrixWorld(true);
+  // find the mask's surface where each eye is (in the model it sits around x ±0.036, y 1.51), using the real skinned
+  // vertices so the decal lands exactly on the drawn mask whatever the bone conventions are
+  const maskMeshes = []; inst.root.traverse(o => { if (o.isMesh && (Array.isArray(o.material) ? o.material : [o.material]).some(m => /^mask$/i.test(m.name || ''))) maskMeshes.push(o); });
+  const vtx = V(), world = (mesh, i) => { vtx.fromBufferAttribute(mesh.geometry.attributes.position, i); if (mesh.isSkinnedMesh) mesh.applyBoneTransform(i, vtx); return mesh.localToWorld(vtx.clone()); };
+  let skinBone = null;
+  const surf = (x, y) => { let best = null, bz = -1e9; for (const m of maskMeshes) { const pa = m.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const px = pa.getX(i), py = pa.getY(i), pz = pa.getZ(i); if (Math.abs(px - x) < 0.006 && Math.abs(py - y) < 0.006 && pz > bz) { bz = pz; best = [m, i]; } } }
+    if (!best) return null;
+    // follow the bone this vertex is actually skinned to
+    const [m, i] = best; if (!skinBone && m.isSkinnedMesh && m.geometry.attributes.skinIndex) { const si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight; let bk = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; bk = si.getComponent(i, k); } } skinBone = m.skeleton.bones[bk]; }
+    return world(m, i); };
+  for (const s of [1, -1]) {
+    const ex = s * 0.036, p0 = surf(ex, 1.51), px = surf(ex + s * 0.012, 1.51), py = surf(ex, 1.522);
+    if (!p0 || !px || !py) continue;
+    const ax = px.clone().sub(p0), ay = py.clone().sub(p0), unit = inst.root.getWorldScale(V()).x;
+    ax.normalize(); ay.normalize(); const nz = ax.clone().cross(ay).normalize(); if (s < 0) nz.negate(); const ay2 = nz.clone().cross(ax.clone().multiplyScalar(s)).normalize();
+    const basis = new THREE.Matrix4().makeBasis(ax.clone().multiplyScalar(s), ay2, nz);
+    const worldM = new THREE.Matrix4().compose(p0.clone().addScaledVector(nz, 0.006 * unit), new THREE.Quaternion().setFromRotationMatrix(basis), V(s * unit, unit, unit));
+    const m = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4 });
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(0.084, 0.098), m);
+    const eg = glow(0xff2a40, 0.05, 0); eg.position.set(0.004, 0.006, 0.004); d.add(eg); d.userData.glow = eg;
+    const bone = skinBone || head; bone.add(d); bone.matrixWorld.clone().invert().multiply(worldM).decompose(d.position, d.quaternion, d.scale);
+    d.renderOrder = 9999; d.visible = false;
+    ladyFace.decals.push(d);
+  }
+}
+function setLadyFace(name, hold = 0) { if (hold > 0) { ladyFace.hold = name; ladyFace.holdT = hold; } else ladyFace.want = name; }
+function updateLadyFace(dt) {
+  if (ladyFace.holdT > 0) ladyFace.holdT -= dt;
+  const want = ladyFace.holdT > 0 ? ladyFace.hold : ladyFace.want;
+  if (want !== ladyFace.cur) { ladyFace.a -= dt * 7; if (ladyFace.a <= 0) { ladyFace.a = 0; ladyFace.cur = want; ladyFace.decals.forEach(d => { if (want !== 'calm') { d.material.map = ladyFace.tex[want]; d.material.needsUpdate = true; } }); } }
+  else ladyFace.a = Math.min(1, ladyFace.a + dt * 5);
+  const show = ladyFace.cur !== 'calm' ? ladyFace.a * lady.opacity : 0;
+  ladyFace.decals.forEach(d => { d.material.opacity = show; d.visible = show > 0.01; d.userData.glow.material.opacity = ladyFace.cur === 'angry' ? show * (0.75 + Math.sin(time * 9) * 0.2) : 0; });
+}
+const FACE_POSE = { calm: [0, 0], angry: [0.14, 0], sad: [0.22, 0.06], surprised: [-0.12, 0], happy: [-0.04, 0.14], shy: [0.1, -0.16] };
 function applySingle(role) {
   const p = vrmProto[role];
   if (role === 'lady') {
@@ -734,6 +924,7 @@ function applySingle(role) {
       ladyVRM = makeVRMInstance(p, true); lady.g.add(ladyVRM.wrap);
       ladyVRM.root.traverse(o => { if (o.isMesh) { o.castShadow = false; (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.transparent = true; m.userData.vrm = true; if (m.isOutline) m.visible = false; if (!lady.mats.includes(m)) lady.mats.push(m); }); } });
       setLadyOpacity(lady.opacity);
+      attachLadyFace(ladyVRM);
     }
   } else if (role === 'player') {
     if (playerVRM) { player.g.remove(playerVRM.wrap); playerVRM = null; }
@@ -897,7 +1088,7 @@ const homeIconMat = canvasSprite((x, w, h) => { bubble(x, w, h); x.fillStyle = '
 const floaters = [];
 function floatText(pos, text, color = '#fff8f3') {
   const s = canvasSprite((x, w, h) => { x.font = '900 52px "Zen Maru Gothic", system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineWidth = 9; x.strokeStyle = 'rgba(42,34,56,.9)'; x.strokeText(text, w / 2, h / 2); x.fillStyle = color; x.fillText(text, w / 2, h / 2); }, 256, 96, 1.9, 0.72);
-  s.position.copy(pos).add(V(0, 2.2, 0)); scene.add(s); floaters.push({ s, t: 0 });
+  s.position.copy(pos); if (inHome(pos.x, pos.z) && pos.y > HOME.y + 10) s.position.y = HOME.y; s.position.add(V(0, 2.2, 0)); scene.add(s); floaters.push({ s, t: 0 });
 }
 const bursts = [];
 function burst(pos, color = 0xfff0f6, size = 2.5) { const s = glow(color, 0.1, 1); s.position.copy(pos); scene.add(s); bursts.push({ s, t: 0, size }); }
@@ -991,8 +1182,13 @@ class Spirit {
     this.it = addItem({ type: 'spirit', spirit: this, x, z, pos: this.pos, reach: 1.0, obj: g });
   }
   release() { const t = this.task; if (!t) return; if (t.type === 'tree' || t.type === 'bush') t.obj.reservedN = Math.max(0, t.obj.reservedN - 1); if (t.type === 'rabbit' && t.obj.hunter === this) t.obj.hunter = null; this.task = null; }
-  setCarry(c) { this.carry = c; this.log.visible = c === 'log'; this.meat.visible = c === 'meat' || c === 'berry'; this.meat.scale.setScalar(c === 'berry' ? 0.7 : 1); }
+  setCarry(c) { this.carry = c; this.log.visible = c === 'log'; this.meat.visible = c === 'meat' || c === 'berry' || c === 'dish'; this.meat.scale.setScalar(c === 'berry' ? 0.7 : 1); }
   pickTask() {
+    if (meal.on && !this.ate && table.done) { const st = seatOf(this); this.state = 'toTable'; this.target.set(st.x, 0, st.z); return; }
+    if (this.job === 'cook' && kitchen.done) {
+      if (W.food >= 2) { this.state = 'toPantry'; this.target.set(STOCK.x, 0, STOCK.z); return; }
+      const sp = STOVE_SPOTS[spirits.indexOf(this) % STOVE_SPOTS.length]; this.state = 'wander'; this.target.set(sp.x + 0.6 + R() * 0.8, 0, sp.z + (R() - 0.5) * 1.4); this.timer = 2 + R() * 2; return;
+    }
     const near = (arr, ok) => { let best = null, bd = 1e9; for (const o of arr) if (ok(o)) { const d = Math.hypot(o.x - this.pos.x, o.z - this.pos.z); if (d < bd) { bd = d; best = o; } } return best; };
     if (this.job === 'wood') { const t = near(trees, t => t.wood - t.reservedN > 0); if (t) { t.reservedN++; this.task = { type: 'tree', obj: t }; this.go(t.x, t.z); return; } }
     if (this.job === 'hunt') {
@@ -1005,6 +1201,12 @@ class Spirit {
   }
   go(x, z) { this.state = 'go'; this.target.set(x, 0, z); }
   moveTo(dt, speed = 3.8, stopAt = 0.9) {
+    const meIn = inHome(this.pos.x, this.pos.z);
+    if (meIn !== inHome(this.target.x, this.target.z)) {
+      const door = meIn ? IN_DOOR : OUT_DOOR, ex = door.x - this.pos.x, ez = door.z - this.pos.z, ed = Math.hypot(ex, ez);
+      if (ed < 0.4) { const o = meIn ? OUT_DOOR : IN_DOOR; this.pos.set(o.x, 0, o.z); this._lp.copy(this.pos); if (earVol(o) > 0.05) tone(520, 0.08, 'triangle', 0.025); return false; }
+      const st = Math.min(ed, speed * dt); this.pos.x += ex / ed * st; this.pos.z += ez / ed * st; this.face = Math.atan2(ex, ez); return false;
+    }
     const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z, d = Math.hypot(dx, dz);
     if (d < stopAt) return true;
     const s = Math.min(d, speed * dt); this.pos.x += dx / d * s; this.pos.z += dz / d * s; this.face = Math.atan2(dx, dz); return false;
@@ -1032,7 +1234,7 @@ class Spirit {
   }
   askUppies() { this.release(); this.state = 'uppies'; this.timer = 20; this.uppAge = 0; this.sayT = 3.5; sayUppies(this); if (!sawUppies) { sawUppies = true; whisper('Pick them up. Nobody held them, back then.'); toast('A wispling wants uppies! Walk over and tap them, or press E.'); } }
   update(dt, t) {
-    this.spawnT += dt; this.hunger = Math.min(100, this.hunger + dt * 100 / 80);
+    this.spawnT += dt; this.hunger = Math.min(100, this.hunger + dt * (table.done ? 100 / (DAY * 1.25) : 100 / 80));
     if (this.air) return this.updateAir(dt, t);
     this.g.rotation.z = 0;
     this.it.x = this.pos.x; this.it.z = this.pos.z;
@@ -1053,19 +1255,19 @@ class Spirit {
     }
     // now and then, a wispling stops what it is doing and asks to be carried
     const calm = !this.carry && ['idle', 'wander', 'go'].includes(this.state);
-    if (calm && state === 'play') { this.uppT -= dt; if (this.uppT <= 0 && P.holding !== this) { this.uppT = 50 + R() * 70; if (!spirits.some(s => s.state === 'uppies') && (P.where === 'mountain' || ladyFree())) this.askUppies(); } }
+    if (calm && state === 'play') { this.uppT -= dt; if (this.uppT <= 0 && P.holding !== this) { this.uppT = 50 + R() * 70; if (!spirits.some(s => s.state === 'uppies') && (P.where !== 'town' || ladyFree())) this.askUppies(); } }
     if (this.sulk > 0) this.sulk -= dt;
-    if (!this.carry && this.hunger > 65 && W.food > 0 && !['toEat', 'eating', 'uppies'].includes(this.state)) { this.release(); this.state = 'toEat'; this.target.set(STOCK.x, 0, STOCK.z); }
+    if (!table.done && !this.carry && this.hunger > 65 && W.food > 0 && !['toEat', 'eating', 'uppies'].includes(this.state)) { this.release(); this.state = 'toEat'; this.target.set(STOCK.x, 0, STOCK.z); }
     switch (this.state) {
       case 'idle': this.pickTask(); break;
       case 'uppies': {
         // run to whoever is nearer: you, or her
-        const dYou = P.where === 'mountain' ? Math.hypot(P.pos.x - this.pos.x, P.pos.z - this.pos.z) : 1e9;
-        const dHer = ladyFree() ? Math.hypot(L.pos.x - this.pos.x, L.pos.z - this.pos.z) : 1e9;
+        const dYou = youDist(this);
+        const dHer = ladyFree() ? (inHome(this.pos.x, this.pos.z) ? Math.hypot(OUT_DOOR.x - this.pos.x, OUT_DOOR.z - this.pos.z) + 14 : 0) + Math.hypot(L.pos.x - (inHome(this.pos.x, this.pos.z) ? OUT_DOOR.x : this.pos.x), L.pos.z - (inHome(this.pos.x, this.pos.z) ? OUT_DOOR.z : this.pos.z)) : 1e9;
         if (dYou > 1e8 && dHer > 1e8) { this.state = 'idle'; break; }
         this.upTo = dHer < dYou ? 'lady' : 'player';
         const who = this.upTo === 'lady' ? L.pos : P.pos;
-        this.target.set(who.x, 0, who.z); const tr = Math.hypot(this.target.x, this.target.z); if (tr > 24) this.target.multiplyScalar(24 / tr);
+        this.target.set(who.x, 0, who.z); const tr = Math.hypot(this.target.x, this.target.z); if (tr > 24 && !inHome(who.x, who.z)) this.target.multiplyScalar(24 / tr);
         this.moveTo(dt, 3.7, this.upTo === 'lady' ? 1.2 : 1.7); this.face = Math.atan2(who.x - this.pos.x, who.z - this.pos.z);
         this.sayT -= dt; if (this.sayT <= 0 && this.timer > 3) { this.sayT = 4.5 + R() * 1.5; sayUppies(this); }
         this.timer -= dt; this.uppAge += dt;
@@ -1095,6 +1297,7 @@ class Spirit {
         if (c === 'log') { W.wood++; floatText(here, '+1 wood', '#ffd9a8'); }
         if (c === 'meat') { W.food += 2; floatText(here, '+2 food', '#ffc2cf'); }
         if (c === 'berry') { W.food += 1; floatText(here, '+1 food', '#ffc2cf'); }
+        if (c === 'dish') { W.food += 2; }
         this.setCarry(null); this.state = 'idle';
       } break;
       case 'fetch': if (this.moveTo(dt, 3.6, 1.2)) {
@@ -1105,16 +1308,23 @@ class Spirit {
       case 'goBuild': if (this.moveTo(dt, 3.4, 1.4)) { this.state = 'building'; this.timer = 1.6; } break;
       case 'building': this.timer -= dt; if (this.timer <= 0) { const s = this.task.obj; s.incoming--; this.setCarry(null); this.task = null; addProgress(s, 1, this.pos); this.state = 'idle'; } break;
       case 'toEat': if (this.moveTo(dt, 3.8, 1.2)) { if (W.food > 0) { W.food--; this.hunger = 0; this.state = 'eating'; this.timer = 1.2; floatText(this.pos, '♥', '#ff9ebb'); tone(1046, 0.2, 'sine', 0.03); } else this.state = 'idle'; } break;
+      case 'toPantry': if (this.moveTo(dt, 3.6, 1.2)) { if (W.food >= 2) { W.food -= 2; this.setCarry('dish'); this.state = 'toStove'; const sp = STOVE_SPOTS[spirits.indexOf(this) % STOVE_SPOTS.length]; this.target.set(sp.x, 0, sp.z); } else this.state = 'idle'; } break;
+      case 'toStove': if (this.moveTo(dt, 3.4, 0.25)) { this.state = 'cooking'; this.timer = 5 + R() * 1.5; this.face = -Math.PI / 2; } break;
+      case 'cooking': this.face = -Math.PI / 2; this.timer -= dt; if (this.timer <= 0) { this.setCarry(null); W.treats++; treatsCooked++; floatText(this.pos, '+1 treat', '#c9f0c4'); if (earVol(this.pos) > 0.05) { tone(784, 0.12, 'sine', 0.035); tone(1046, 0.16, 'sine', 0.03, 0.08); } this.setMoods([[1.6, { happy: 1, aa: 0.4 }]]); if (treatsCooked === 1) whisper('Dango. They make them the way Mother did.'); this.state = 'idle'; } break;
+      case 'toTable': if (!meal.on || this.ate) { this.state = 'idle'; break; } if (this.moveTo(dt, 3.6, 0.12)) { const st = seatOf(this); this.pos.set(st.x, 0, st.z); this.state = 'atTable'; this.face = st.face; } break;
+      case 'atTable': this.face = seatOf(this).face; if (!meal.on || this.ate) this.state = 'idle'; break;
+      case 'dining': this.face = seatOf(this).face; this.timer -= dt; if (this.timer <= 0) { plates[spirits.indexOf(this) % plates.length].visible = false; this.state = 'idle'; } break;
       case 'eating': this.timer -= dt; if (this.timer <= 0) this.state = 'idle'; break;
     }
     // look
-    const working = this.state === 'work' || this.state === 'building' || this.state === 'eating';
+    const working = this.state === 'work' || this.state === 'building' || this.state === 'eating' || this.state === 'cooking' || this.state === 'dining';
+    const drumming = this.state === 'atTable', lift = drumming ? drumLift() : 0;
     const asking = this.state === 'uppies';
-    const bob = working ? Math.abs(Math.sin(t * 12 + this.phase)) * 0.15 : asking ? Math.abs(Math.sin(t * 9)) * 0.18 : Math.sin(t * 3 + this.phase) * 0.06;
+    const bob = drumming ? lift * 0.06 : working ? Math.abs(Math.sin(t * 12 + this.phase)) * 0.15 : asking ? Math.abs(Math.sin(t * 9)) * 0.18 : Math.sin(t * 3 + this.phase) * 0.06;
     this.g.position.set(this.pos.x, heightAt(this.pos.x, this.pos.z) + 0.12 + bob, this.pos.z);
     this.g.rotation.y = lerpAngle(this.g.rotation.y, this.face, 0.15);
     const sc = this.spawnT < 0.8 ? elastic(this.spawnT / 0.8) : 1; this.g.scale.setScalar(1.25 * sc);
-    this.arms.forEach(a => a.piv.rotation.z = asking ? a.s * 2.6 + Math.sin(t * 14 + a.s) * 0.35 : this.carry ? a.s * 2.9 : working ? a.s * (0.6 + Math.abs(Math.sin(t * 12)) * 1.2) : a.s * 0.25 + Math.sin(t * 4 + this.phase) * 0.1);
+    this.arms.forEach(a => a.piv.rotation.z = drumming ? a.s * (0.5 + lift * 1.4) : asking ? a.s * 2.6 + Math.sin(t * 14 + a.s) * 0.35 : this.carry ? a.s * 2.9 : working ? a.s * (0.6 + Math.abs(Math.sin(t * 12)) * 1.2) : a.s * 0.25 + Math.sin(t * 4 + this.phase) * 0.1);
     this.tail.rotation.y = Math.sin(t * (asking ? 14 : 4) + this.phase) * 0.4;
     this.head.rotation.z = this.sulk > 0 ? 0.25 : Math.sin(t * 2 + this.phase) * 0.06;
     const hungry = this.hunger > 75, homeless = !this.home && day >= 2;
@@ -1123,8 +1333,8 @@ class Spirit {
     if (sad > 0.5) this.body.position.x = Math.sin(t * 40) * 0.02; else this.body.position.x = 0;
     this.bubble.visible = asking; this.bubble.scale.set(1.0 + Math.sin(t * 8) * 0.05, 0.47, 1);
     this.icon.visible = !asking && (hungry || homeless); this.icon.material = hungry ? hungryIconMat : homeIconMat;
-    if (this.vrm) { const mv = Math.hypot(this.pos.x - this._lp.x, this.pos.z - this._lp.z) / Math.max(dt, 1e-4); this._lp.copy(this.pos); poseVRM(this.vrm, { armsUp: asking ? 1 : this.carry ? 0.9 : 0, wave: asking, walk: t * 11 + this.phase, walkAmt: clamp(mv / 3, 0, 1), headRoll: this.sulk > 0 ? 0.25 : 0, mood: this.seqMood(dt) || (this.sulk > 0 ? { angry: 0.8, sad: 0.3 } : asking ? { happy: 0.5, aa: 0.35 + Math.abs(Math.sin(t * 9)) * 0.45 } : this.state === 'eating' ? { happy: 1 } : sad > 0.15 ? { sad: Math.min(1, 0.4 + sad) } : working ? { relaxed: 0.3 } : { relaxed: 0.5 }) }, dt); }
-    this.halo.material.opacity = 0.2 + night * 0.55;
+    if (this.vrm) { const mv = Math.hypot(this.pos.x - this._lp.x, this.pos.z - this._lp.z) / Math.max(dt, 1e-4); this._lp.copy(this.pos); poseVRM(this.vrm, { armsUp: asking ? 1 : this.carry ? 0.9 : 0, wave: asking, drum: drumming ? lift : undefined, headTilt: drumming ? 0.12 - lift * 0.25 : 0, walk: t * 11 + this.phase, walkAmt: clamp(mv / 3, 0, 1), headRoll: this.sulk > 0 ? 0.25 : 0, mood: this.seqMood(dt) || (this.sulk > 0 ? { angry: 0.8, sad: 0.3 } : drumming ? { happy: 0.75, aa: 0.15 + (1 - lift / 0.32) * 0.35 } : this.state === 'dining' ? { happy: 1, aa: 0.3 + Math.abs(Math.sin(t * 9)) * 0.4 } : asking ? { happy: 0.5, aa: 0.35 + Math.abs(Math.sin(t * 9)) * 0.45 } : this.state === 'eating' ? { happy: 1 } : sad > 0.15 ? { sad: Math.min(1, 0.4 + sad) } : working ? { relaxed: 0.3 } : { relaxed: 0.5 }) }, dt); }
+    this.halo.material.opacity = (0.2 + night * 0.55) * (inHome(this.pos.x, this.pos.z) ? 0.25 : 1);
   }
 }
 function pickUp(s) {
@@ -1191,7 +1401,7 @@ function killRabbit(r) { r.alive = false; r.frozen = false; r.hunter = null; r.o
 
 // ---------------------------------------------------------------- spirit huts
 const sites = [];
-function buildSites() { return sites.filter(s => !s.done).concat(cabin.built ? [] : [cabin]); }
+function buildSites() { return sites.filter(s => !s.done).concat(cabin.built ? [kitchen, table].filter(s => !s.done) : [cabin]); }
 function makeHutSite(slotIndex, progress = 0) {
   const [x, z] = SLOTS[slotIndex];
   const g = new THREE.Group(); placeY(g, x, z); g.rotation.y = Math.atan2(-x, -z + 4) + Math.PI; scene.add(g);
@@ -1218,7 +1428,8 @@ function addProgress(s, n, where) {
   if (s.done || s === cabin && cabin.built) return;
   s.progress = Math.min(s.need, s.progress + n); tone(220 + s.progress * 30, 0.1, 'triangle', 0.05);
   if (where) floatText(V(s.x, 0, s.z), `${s.progress}/${s.need}`, '#ffe9c2');
-  if (s === cabin) { updateCabinLook(); if (cabin.progress >= cabin.need) { cabin.built = true; updateCabinLook(); toast('Your cabin is mended. You can rest here after dusk.'); chime(); } return; }
+  if (s.room) { refreshRoomSite(s); if (s.progress >= s.need) { s.done = true; refreshRoomSite(s); burst(V(s.x, HOME.y + 1.4, s.z), 0xffd0e0, 3); chime(); roomDone(s); } refreshHUD(); return; }
+  if (s === cabin) { updateCabinLook(); if (cabin.progress >= cabin.need) { cabin.built = true; updateCabinLook(); toast('Your cabin is mended. Step inside: there is room for a kitchen and a table.'); chime(); } return; }
   refreshSite(s);
   if (s.progress >= s.need) { s.done = true; refreshSite(s); burst(V(s.x, 1.5, s.z), 0xffd0e0, 4); chime(); toast('A spirit hut is finished. Two wisplings can sleep here.'); assignHomes(); if (sitesDone() === 1) whisper('A little house. They will remember that you built it.'); }
 }
@@ -1270,6 +1481,70 @@ function setLadyOpacity(o) { lady.opacity = o; lady.g.visible = o > 0.01; lady.m
 // ---------------------------------------------------------------- state
 const W = { wood: 2, food: 3, coins: 3, treats: 1 };
 let sawUppies = false, lastUppiesWhisper = -99;
+// supper: once the table is built, wisplings only eat there, once a day at sunset
+const MEAL_T = 0.6, MEAL_END = 0.95, DRUM_HZ = 2.3;
+const meal = { on: false, t: 0 };
+let treatsCooked = 0, mealsServed = 0, sawHome = false, lastBeat = -1;
+const seatOf = s => SEATS[Math.max(0, spirits.indexOf(s)) % SEATS.length];
+// distance for a wispling to reach you, going through the cabin door if it has to
+function youDist(s) {
+  const sIn = inHome(s.pos.x, s.pos.z);
+  if (P.where === 'town') return 1e9;
+  if ((P.where === 'home') === sIn) return Math.hypot(P.pos.x - s.pos.x, P.pos.z - s.pos.z);
+  return P.where === 'home' ? Math.hypot(OUT_DOOR.x - s.pos.x, OUT_DOOR.z - s.pos.z) + 4 : Math.hypot(IN_DOOR.x - s.pos.x, IN_DOOR.z - s.pos.z) + 4;
+}
+// hands up between beats, down on the beat; every fourth beat is a rest, so it sounds like tap-tap-tap . tap-tap-tap .
+function drumLift() { const b = time * DRUM_HZ, ph = b - Math.floor(b), rest = Math.floor(b) % 4 === 3; return rest ? 0.32 : 0.32 * Math.pow(Math.sin(ph * Math.PI), 0.6); }
+function roomDone(s) {
+  if (s === kitchen) { toast('The kitchen is ready. Set wisplings to Cook treats and they will turn food into dango.'); whisper('A real kitchen. Someone will cook for them.'); }
+  else { toast('The table is ready. From now on the wisplings eat here, once a day at sunset. Serve 1 food each.'); whisper('A table. Nobody set a place for me, after.'); if (dayT >= MEAL_T && dayT < MEAL_END) startMeal(); }
+}
+function startMeal() {
+  if (!table.done || meal.on || !spirits.length) return;
+  meal.on = true; meal.t = 0;
+  spirits.forEach(s => { s.ate = false; if (!s.held && !s.air && ['idle', 'wander', 'go', 'work'].includes(s.state)) { s.release(); s.state = 'idle'; } });
+  toast(P.where === 'home' ? 'Supper time! The wisplings are coming to the table.' : 'Supper time! The wisplings are heading into your cabin.');
+  if (mealsServed === 0) setTimeout(() => whisper('Hear that? They are drumming on the table. Go and feed them.'), 6000);
+  refreshHUD();
+}
+function serveMeal() {
+  if (!meal.on) return toast('Supper is at sunset. The wisplings will gather here when it’s time.');
+  const wait = spirits.filter(s => s.state === 'atTable' && !s.ate);
+  if (!wait.length) return toast('Nobody has sat down yet. They are on their way.');
+  let served = 0;
+  for (const s of wait) {
+    if (W.food > 0) W.food--; else if (W.treats > 0) W.treats--; else break;
+    served++; s.ate = true; s.hunger = 0; s.state = 'dining'; s.timer = 4 + R() * 1.5;
+    plates[spirits.indexOf(s) % plates.length].visible = true;
+    s.setMoods([[0.4, { surprised: 0.7, happy: 0.4 }], [99, { happy: 1 }]]); floatText(s.pos, '♥', '#ff9ebb');
+  }
+  if (!served) return toast('The pantry is empty. Supper needs 1 food each (treats will do).');
+  chime(); tone(1318, 0.18, 'sine', 0.03, 0.2);
+  if (served < wait.length) toast(`Only enough for ${served}. ${wait.length - served} still waiting.`);
+  if (spirits.every(s => s.ate)) {
+    meal.on = false; mealsServed++; wrath = clamp(wrath - 4, 0, 100);
+    whisper(mealsServed === 1 ? 'They ate together. Like a family.' : ['Full bellies. Good.', 'Listen to them chatter.', 'Everyone fed. I am glad.'][mealsServed % 3]);
+  }
+  refreshHUD();
+}
+function endMeal() {
+  const unfed = spirits.filter(s => !s.ate);
+  meal.on = false;
+  unfed.forEach(s => { if (['toTable', 'atTable'].includes(s.state)) s.state = 'idle'; s.setMoods([[6, { sad: 1 }]]); });
+  if (unfed.length) { wrath = clamp(wrath + Math.min(12, unfed.length * 3), 0, 100); whisper('They drummed at an empty table until dark.'); }
+  refreshHUD();
+}
+function updateHome(dt) {
+  if (state !== 'play') return;
+  if (meal.on) meal.t += dt;
+  // gentle drumming in time: one soft wooden tap per beat, for however many are waiting
+  const seated = spirits.filter(s => s.state === 'atTable').length, bi = Math.floor(time * DRUM_HZ);
+  if (bi !== lastBeat) { lastBeat = bi; if (seated && bi % 4 !== 3) { const v = earVol(V(table.x, 0, table.z)) * Math.min(1, 0.4 + seated * 0.12); if (v > 0.02 && AC && !muted) { tone(bi % 4 === 0 ? 160 : 175, 0.09, 'triangle', 0.06 * v); tone(340, 0.04, 'sine', 0.02 * v); } } }
+  // the kitchen steams while someone cooks
+  const cooking = spirits.some(s => s.state === 'cooking');
+  steams.forEach((st, i) => { st.material.opacity = lerp(st.material.opacity, cooking ? 0.35 + Math.sin(time * 3 + i) * 0.1 : 0, 0.05); st.position.y = 1.3 + ((time * 0.4 + i * 0.5) % 1) * 0.4; });
+  if (stoveFire) stoveFire.material.color.setHex(kitchen.done ? (cooking ? 0xffa94d : 0xb0603a) : 0x3b3346);
+}
 let state = 'title', day = 1, dayT = 0.27, wrath = 10, tributeToday = false, offeredEver = false, night = 0, time = 0, endT = 0, wonOnce = false, shake = 0, lastHungryWhisper = -99, lastHomeWhisper = -99;
 const DAY = 210, WIN_COUNT = 5, MAX_SPIRITS = 12;
 // chapters: 1 = wake five wisplings; 2 = restore her shrine with artifacts from the mountain and the village
@@ -1297,7 +1572,7 @@ spawnSpirit(true);
 
 // ---------------------------------------------------------------- audio
 let AC = null, muted = false;
-function audioOn() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); }
+function audioOn() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); loadUppies(); }
 function tone(f, d = 0.3, type = 'sine', v = 0.06, delay = 0) {
   if (!AC || muted) return;
   try { const o = AC.createOscillator(), g = AC.createGain(), t0 = AC.currentTime + delay; o.type = type; o.frequency.setValueAtTime(f, t0); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + 0.05); } catch (e) { }
@@ -1306,8 +1581,30 @@ function chime() { [784, 988, 1319, 1568].forEach((f, i) => tone(f, 0.9, 'sine',
 function rumble(d = 1.6) { tone(46, d, 'sawtooth', 0.07); tone(38, d, 'square', 0.03, 0.05); }
 
 // ---------------------------------------------------------------- little voices
-// "uppies!" is spoken with the system voice where there is one (pitched up like a small child), and sung
+// "uppies!" is a recorded voice clip per kind; before those decode it falls back to the system voice (pitched up like a small child), and sung
 // by a tiny formant synth otherwise. Giggles are always synthesized.
+// "uppies!" recorded by Drig (take 2, the one Drig kept): denoised, trimmed, loudness-matched and re-pitched slightly per kind.
+const UPPIES_VO = {"fox":["SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//OEwAAAAAAAAAAAAEluZm8AAAAPAAAAGQAAE4AAExMTHR0dHScnJycxMTExOzs7O0REREROTk5OWFhYWGJiYmJsbGxsdnZ2doCAgICJiYmJk5OTk52dnZ2np6ensbGxsbu7u7vExMTEzs7OztjY2Nji4uLi7Ozs7Pb29vb/////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQC3AAAAAAAABOAPx4K/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OExAAlA/ngBUxAAQYEQsVOxLEsnma9xhY5q8zjJAEwPn+U5te+YQKCgoKJWlSWLi57uYgoKCgoYmibu73u7+iJ/7u738IiJWlbu7vf//o73u4uLnihiIifKVLu9wQLi7/u+76ECgoHANAXg3BuH4u96O78ECgoj//8PeiInon////vde7vwguLnvoiI9wQKGJ6In/o7u73ogueHh7wzw9OCOIIiEggJ0mkxENgDn2PYUIAf/tIEDnktqWR9v19//OExB8vmwKKX5mgArrvjvLRBwCRABxQDBAE3pjJkMKhqBmFQBxQR6DnHykOAdh8uAkQBEcAsULAhf8XAUyfJMmGBvcDAAwcvAgQAwJsNDQQst5mZEQLRuXCcAoBBQkIKgssHEGIxzUGtLhoggZm5WLpBx3mhubjkjJBswJiQgAAMBgx8ag5myvqzA0Z9dSCZuMmajhImbpqLjDLkME5//+UCp//iDhGhEF50uqNIgGQSWGjItQhenQgRCgA4fMx//OExBMs+n6p59rAAqAGopRXDnib4GJtiFQK9xoUaVS0sEkDOGlbnTJga8TBhUZECxK7ktGd2UOXaky/5WkUnAupOCBoEUYvOLPVa2Uuo8eW/psK261N+reHP7vH5vC3QVo48crgiN3se8qb1jU/XcP5KL/z0d3S0kmhl9pNKozKq/445bw/+//77zX/////n/amE9hbkNSxPbl2XLVSjjJAbmTIMgyKirDRp7/XAlH4tyUlSxKJiIaZ5eVK5iyY//OExBIq0nacBtMNUhgqzEVo+zEEGQIaN4kBqsyY4HCjGBUnC/yDwIRmJItaDALSn/gWVYwl8lL0bF2per4Vdeuy+o8bxEcOlbnWo/BarsZ9V3G0tl2ZBajJmycuQhLAJRcHQu9Z0rNxPPQ1m0VHuhlwyhjXpi0cJjsMd8f75a87d685/8w8LaiyAUtGod0gkMRnUlQgKPEFry9y/MnQiXekT4PDOlWAACQV1b7LzUUdi6Po6Am1yRspope3KnpG//OExBksorKFRtpNb8qcAkHGawxwL8aCERBrrkto+aXqL5lBqUHCkojSM6m553goCrgac/0iZDAsR7Eo+w1lv8o7FivUGT0tc3Nh6jZx9XH0isUhUEQqRNKhU8Fg0RAkzGUn+MUkOe5LillD1xSKQRDJx8f7Ff96rfTOztRWwkFHo65zozPOBQCR5ZFHy1fzk3haHJpsXB/pRMu33Wtr/R3ULW3//8UJlCY7Q2X1fmrrF/UOQLKTFo39f29QO0xY//OExBkgMu54tsGHDrAV6wLX3PVs5W+z3xmxe1KX8hQjCQ7cqtiKJSU15OUUFbieGkVY/O7BncKQFsQtSuZScy/Wl5Z0pmzL499n7tSZmqRvYldVW1arZKolV/L2MmkUm914+JYYk4g8t9t//rFakQnFvY2hI/q6Xkdpn6cDYAuARZNK3NQBYNPtIjcigBdCDAXgmGAoJEvi0JEFasXdSkW4weKu1cdFiL2OCzBUzSicJh84AYQG2x0FlJhMBdIU//OExEsnIoZEAtJNKzBlJDLbaIROuhczId5gEPeySck07iIKWRa2ICh40LlbIohQ5EBgQMAgtGiQ1I4tUnDnq2ctiW9tRNxmbSWAxLXz8jOosok0W+8xH/a2YEZCG6UAwa0ub/dNjbxl92LprESGUVIF5L7sjoGhvY9dm5TUv1yABw2o0uzlH1AhFQMPRoTqHPa+Jh+73iRcYnO9cyllY49C+a4SuZj7udZ+Jn7T3jqK6jqYSv9f4WnWO75eXWhw//OExGEc0nJld1hAANCYHDb/TW9uyz2N7u+7/VJ/xZUgICgPAABRIBOczoM4AAySVR8VSmeEnpjnBBpShiIx40wQYzxh2gMpkTXRICJD5iqoGQBTLypvM1aI2jIHHQRCNECmNyvwY+qDkhATCZKA8AqhIIWRN5EEQQDAbMU4IYWSY5qNZsgs6hBrYggA+1DN6JKDQEa01IEGiMgEhDNgYeFhBIgzgGmS9YhttGiwbGoIREiUuCQJNoKrmWQbhZ4G//OExKBF2v5eI5rIAJwBERbusvkqw8Lben+fNocgEDmVKC/SKTySqUBhaiyzWll0X5CgMB2pXp16SKRxnE4tSDX7gSG3oR6Yky2cS/RdVoDCWYLllFtw37TCl19YzcH+fqWvvP2sPw//////9WBW5plWlq0usf///+MOcKl/0/9p5jOpauu2ydxJliIoECRQYqRmM0Z5qCZwbBgqCgd4IFl1IvJxHDpYvSTNqvqPHmU6Hud6XxnN9vFY6rjVc4ge//OExDsnukZwAdt4AHi7rvMSm53F/EjI9PJJpX2EXMSYASDwYFZRgVJeWFz25nMpKODCXJQF9gk/LGYRtnuoQF8S4ZgQSGoSWVbjoLAOs6y2FwQtJHRrTyJrLiT9XFsU7Yh9HPdnNOFsQi+nmyJGrxmEc2QBjAL80VJEXDEYHMJCEwmBTIHZMBh0mAD/u7jevvDU4kioh/C5G2es+JdF3alXJEcYDE9vgSIWFwcJKfOrQj1d/H+Lb9q69ZdXewzR//OExE8nGkZ5EOPw3ArDKVjft9CxuVSlvMlSzPmGmUNYS1AgI5M6a7Cc408tKsYiMymlXarbGmkxGxBkH0SxnGzvUF2Wdp37iUfsXrktl8tl7tzzcblNuf5EChQjAAMd/uzAzXTCIHS4RKHhpxXRiuCTeteiOVu1SUzgX5pQ0vkerdo2xHczOsY3qr5eDRdZz/unkE4F957//4y91WlrYntFJAF09l7dulSV0reRGclVPZ7qalSQ4GjbqQxi2zYa//OExGUnElpoeOvwvK+qwjKW9dG8xGHmcQmRxRXDNY1GrNn7lNPsbTnU1jcXgijiM5RcbG5stmbNSIRfH9xqz3CyjADqAMMvEAchiMXeTsAGEYWMnrG18QlAIItPS2souXO2nbKAbfqlrUsq3qYml5ZWca/85vNJZ1csO/lM6AExc2v/zG7/9jUQkCeoaoIoK0uT/L0p6s/29+O40g7DFncSnpWz+UvAXkNh3BUwl951G4T9pRosJbNBV+JuP3Km//OExHsmioJpmOrxSLqibNV/T3Nbzu5y9BDANfdNMVLX6xiMo//+vfw3qe5VBIjAAVIBlkUpoqucw8IU8TDgCPVeQwyB4QhLgiW3qtahaONA6/BFytNTUOU+31vHVRDHQQfpc90s/1Op51LDejFl7jDjxvI3pBnjdurNqE4EwTaiO9PH+OBFFWpxnhZhoneXUoznVSaAnw6xcwBMaaGtavUsTVoJkFhRkszxjV6cmkTyiW54iIcLR9k/R8Pfy/gw//OExJMmAoJo+OHfDZnypI/WDdVwA1R3KsMNzQwKDYoPjHv49LNMoAER2mOfKKeYvUpAAQqQx6jqR1/jJQPp3eKMEOI2qZl///3m+dfH9fXWLf1ktj4Qhhi6bWBZXl4ng8xwuMB/qlfhOOUdCoampImDAJ2QJCGwyAVUN6XYX4aoYoyhrKcyNHlyN1z6nWlrGQIkN4dUVkIjHVk56e/yCerZXvVfvVPWBDV7OgD7AGMOPtJIq9JccLAUYsgqZtXk//OExK4maoZweNvY/QKXgcF6xL6gDuQ5EZQ3caCmk1G7TsTtJJiBZ3+83G8DK339rmqSrnqNr3zPFPQf7obFmpEbdZczzBgtMWSjE8eO7ssBVvHzErDsDUEeLgf5DVGXtDhhuchxgXThO8nZzIepykiN5dUrTEsOVUvIbcu1lY+LRrQXHWY0W0JXL6sW40Oeygj0nap6ACmAcf+AIu3R8UjDAEBwoax3KzhiwFQOCp+YfWLGow6YMBABCCp6FxWr//OExMcnIoZkWOre8HrruyyWTutf/MImqd/LS3VHYid4DgGL9GiAEDjLtjOw8LqJoJwmtdeQh0Qt8xBmF1Li4R24zT8DQFwGQcqDbR5EoJsfh1k6MQ9UKUJ0Mrwux1EeSxRt8ezLNr+SLWFvFveJR82zvmXJtlu1AOgAVcqR32cJ5jwCmI4lmJ0bGnsKuYOgEKXyjbWpTcesyUwa6kBD9rmeLA0V0G21nP7XtP5BrBfx1fhiBH3iUH/hlNs7gdNB//OExN0lGh5ocOlfKVaJOobOv2GIBLdlr2xJJOK2qpxgAMQa8Y3geiRQDoCJrN3gexgZVOAzKIqZEAo3qoBBCRCGKM6L6ajBlKX5YC7bxOYoCrhUzDnt924ZW0vBI19ICdhYtdzFzSiO9jUYx7ypFZulvf3f3LP/z+////73r9Z1JbAFEgCwCEzQQW+DKxgBDAQKTKlwTiOrDNwozAYJgMCJfqHVZjAQCAAAZgEAamVPWljkNcijDWAwN+FI/kdb//OExPsv6nZgWO+yQLONGtXKSGHtYs02zM0m5hxKGKOM1poyx1N3uchty7KkVgUtyyCXoGXCGDhKEQZmBkSLClbJcv93og7XFPMAb1NwgBTMLTAoYuUtZocPzjXq8VsyHG1T0U1btSedbxl7vS1hDlReVVaQhUFrbUES/p//2VBoCjpiASlTAYAQw2FIBDIIgOMXlcP5F/M6FpMsQFMEwNMXgqEQCCgKmIIGBAOzzrKouU+hgACSd6VruwFLY/K4//OExO4sMnZoUu5K/HpXRS7H8/lT71JVL733ZLKYrz5JDLYmhzL70SmAhCCZACpiW1kCqU2VvQVJghjkDnFTCYbK1NUrmJu6/TpMrc5QWMP0oE05woVXn+V7FLZ12rdvZWt0tiVrle+IRaVSKpD1UIQS/9N9pJ3qJ8R+Qfcf2xacOTWcTNN3xNXQL4MA0iGQw0FMwbHYBEefWl4cQFuYGD+ZcmKUIYYIhcYmhgZdF6YcAeBgVRLThigIAgwrBYRg//OExPAuGmpcBu4M/EJxQVBcubIoQyatRX9XYa7/5b1vn9yu0v/rvJS+cCSQsk3NfoJAQuMpsxGGn6lLIlho1PSmvOWozKH/d12QoAY/HUa1yBpdD/bi7JpM7/36n9tvy31z37X+97coP72FYM6HshOII5k4FECKsSR7MG4NOYgZeiEwVCYiJiApCLgPG2NAMeGAQSPgIQJEZ4pkrBUwAaAnbMCQ2MLQfIAqMAVfPIJvMGBXMNyKMXyOMAwoMFwD//OExOoyQppMBOsxqBYHTCcUg4S26qbNSghCU19iTTpqHofg4Hmg8Km9VFKVbcYeunCO+vkqDNNELLUSAJE0wsiYJiGN2f7KyGRFKkT2thlVVrXsau9vKjHY+8urqD+frHlN/a1I3kn2rKthPsBGGSODoB5V/2lRdBKwxq6GSU8M5mZuFpiYsZLYYkY18GahwhmlG4S/AjEY2PZNSe8MJe/Fk11xZaBRYwMTASYanKHFkhoCGYYUmKBKHzO05i6y//OExNQtcpZAQOpy/WE21qbcl9Xt1Kpdumagee1f9PK1jI9MqHOUpA8YBhY4sNBXKyIHg6jiIdYyOsxjPN7Iav1LX8ea7v92ZVWzmWAsRaakcXiViep5sasAsRTpaUwaq8xAFAyVhQaTFOQBSjRVLkg4KGsJMKBoV19Z2+DKL4uupSsRqTGjFATuOOYkMBwaJLnFnV6xK2/uUy+rq3L+Va6CdlYKXWCkczKZXS5oh2c9b7Ta01jybUy2bE6mWTKW//OExNEjmpYwCNlw/d5Usv/VZZu3t861v49q1zRiVXtZmbUwIcqx8k6S4cJDSFGCaguQnpfyaoc3C3DiTxOmmHSeus2znf+ce3vfXzj5xW2f9/P9vWuLe3t643FtXGsbx7a3TV9bt943i0Z78briFPTOdZpnPuyM8DUfVY02Z4l6KkxBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqoUKjJI04R9IM6SACPCQY+zD1VZGEoykxqTAh14ao22pNSiw1jV//OExPUtlDIEAMje/Vo2sarPak3rVYwqNRIUmNUFBSL2pMa0TDXY112pf+rOTWQ1RlJlpGsNY5/8pBoKCwdYa0jsMmtJqRqwUGjKTUmh/z9Y1LaqqCgpCqWscmVlkscmBk0NZl/0mv/DEhhYkM64VBQVBS1MQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//OExNgi7DXo/nmGEFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"],"cat":["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6f////++X+mSz6BoffI7y8EgEQ0MR0aaQ7Fnp2bwaKoACElCDymRhYGocFhgKBJhG/57M15l4AQBEsyNGIwpBYLgMYKigZEjgYTgck6sIzmJJKtW8ua8tBI5qUql//OExPsvarpcAO4W3YrUsn6JWa5kfmLKUZan0UWSHMVj4FqNzMxHCMkS4plRJJk0OaXVoomKJJD1JWw1AUYpGNI2Uuj3Uk1++9J0UXXd/9vNLkg5D+S1w1jsEdyksUsIc5oVDjDUGkoybQ89bbEHRYKo6CFISEJgLokeloXEAgM2bK00dipMQU1FqqqqAVuJTAH2Dst2L1LkFR03bDPScyoPBgiYaII9t5Gy5qIsNw7GuzdLKJ7eWN2luZ62JHFV//OExPAtUsZUYutxHCpVWL3FBYplYSQYpUt0DwtVokHhZKodkKK3FZ2jSP5TKUpestWev6l+vKQCtCmvI+SGqYek8Xz5iTyOjnKXKPkcoQVgXxmnMbxPipNQ0yGRXxbzbamIuTnMz/9g+iLdzLE/5iMt91VMQQrMZ0o6YgMjQ6i2Fzg22ANnaDRkUBHhjIRCmqpAqDNzTBm7NV+WVO9fs3Jqm73DKMfVY6v+uZf0mkpflVz4e4USBCmAgIBJmUgI//OExOYmSsZYftlfHOsZOUPb7688zP8v/8v/WXd83jzv/ctSqLWW5MukrusKAoG9dqXTMmYc/4ACrDOuMuWcS1Mw0BoVIojaXM0dQUKFDqoSknzQ9FpXrlU9EWQ+ryW0VV1N0MYfN4IeLEhdQqbFpUXSwgpPUtC1gtUl0FAoipbGmQQWdfWKxJh0Lcmi5VqWpThax5S2a0upsjiW1VfvOHT3NRat/YkSS30caRn7OAwVlVVfsdlV//5cjn9Vr1Vd//OExP0sGsIYAtjxGKnmDSONXeZp5z9jiX/85SWvJpHrPfWy6Nl05E4AI3fiMjsdQmD5oypdaVQATwSi0EpTMC0t7LWna9b8ta1Xemy57a2tazT2reqtMT13LfXa1qtW9MtfWrK3mjJ1o+eaXLvmdm36zzVWVsBkffXMOjIyetay6sBCEYVCBowgs+JAIhJ0rDLRXio8vthjT2zOtDsqlUzQTdJXqV7k1Q1Kexapa1Wrcr0lu9ljrX/+WOV25cu1//OExP8wJDnoAMGZHBxmVrZf/tjkahgYIEHCCxhQUMDsqH/bDJlYGCBA45GTWy//bLP//+WWxWWUEDsWUEDBAwcsscv/WWW///////////LJYZGsthkaxOqnmxldb7hrKJVZNNRGeJhSIhkPDQ2UIzD2StVMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//OExPEpDDEcrMDTfVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"],"bunny":["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"],"tanuki":["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"],"wolf":["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"],"deer":["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uRpu72goNQsIolIx3/9f/97vHi6uOkmqB4Gwsn9lrVUDjKBEWYGCwAYND5gwJmHhubY9BiVsg00A5iGHSOYoEZhoRgUdGTheWtjtPB7WhkBjoAg9q2dPQyp26DLD//OExP0v6o5cBu4O/A7Sx+l/KOy3Gzz/zpcef9WzjqX37ztShcyGSdMspo9D3YaXM312xa1lTXJ7kalzdaSt2rS5fl3L/xK3/3cMKdnkNb/f6oSxUin8nUE7OkfKF4GIQKXXNxEOIOXF2OuOoIsI0kzEYiut9i5C4GXzF2kpFRzTkp7mBYBDANmKABHKtwGM6HGLIWGUpsGCgMGA4KDAPgoXQsA5MCxbWZb+a4nKpS2sutxO7NympGZ2NDLi6uN4//OExPArkrZkRuCxxEiP5/BqDoKQ9o4QhFA0xBDEh7h4GmaCMcWSLqGQWmB9KnVt8PsydNtMtEzKc/n9a93L94Yf2rK4anOPCrljwICRZMUUQBOrAjvtfVIs9nKLjOZO/4AsNBxa6AREItMIwSB03gjJLEDYKJQkiMwRoMNY6DBXnxB1TEFNRTMuMTAwVVVVVVVVVVVVA7BgBJUiTrmEGoMDDc9lUogmndGIMggQhcwV2kwmvNeu38pbWfrf5bZm//OExPQt4rJEIOozG2ZhTNGy//1LLywwEf92NerVirqq5VqsNVUp3L+cb/bUj7z/98///X//6mYzhuAX6krwIAmjstqWtYwFInFgJ2pPIAuRjsMInOssZh5bVDUvKhU6Lgt1QAurMOVXtmf/q/63f/V7mLVSMBsiUk+q0DHog58aSCBUZsh7Cn6jbOZa113aarQQ8LUyAqxQwVdN6JXW0/sJrzfajUmjMbHCgUpmDRvYMaqR7OJ1no0nqfW12Wyk//OExN0kIrJEVtDw/JTs6tGpaTouLNL5oTxNDLFc1mRMkFFeE7EGD0guGDAQAsBskPdE3BaELjBuqHGh8RJEBFDDTGRD0hOxeLxstHZk0a1XZ0DZuk1qK2XZNS0FG263PPdAzNE0n1qQW7LrSRWyKmc1anQjngfyY/cDlRWhQGqBUn6PUTFxeC3Hei1hXK52nUNeIcjrEiVyaASwCqrKChISSPAKq5y51iRYBiiVYclMos5RHDiWyaEikdliSRqM//OExP8us9IIANDi3f5qLEtc2tNRbcOXR1PM4SS9a2kWuZRrTrR5tkYSn+tOScFw7Z/mCRaOHbzj1EvpqEolJPLJG65qJQVZGXynmTqpiSyOdqrtUtZHDsdiVORMSr80wKeSOmhJgUaYsjaNF5vOWSXPIwFFolonJSRROS8JLKKVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//OExPct1BnUFMPMEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"]};
+const uppiesBuf = {};
+let uppiesLoading = false;
+function loadUppies() {
+  if (!AC || uppiesLoading) return; uppiesLoading = true;
+  for (const k in UPPIES_VO) uppiesBuf[k] = UPPIES_VO[k].map(() => null);
+  for (const k in UPPIES_VO) UPPIES_VO[k].forEach((b64, i) => {
+    try {
+      const bin = atob(b64), u8 = new Uint8Array(bin.length); for (let j = 0; j < bin.length; j++) u8[j] = bin.charCodeAt(j);
+      AC.decodeAudioData(u8.buffer, buf => { uppiesBuf[k][i] = buf; }, () => { });
+    } catch (e) { }
+  });
+}
+function playUppiesVo(s, vol) {
+  if (!AC || muted) return false;
+  const list = (uppiesBuf[s.kind && s.kind.name || s.kind] || []).filter(Boolean); if (!list.length) return false;
+  try {
+    const src = AC.createBufferSource(); src.buffer = list[Math.floor(R() * list.length)]; src.playbackRate.value = 0.97 + R() * 0.08;
+    const g = AC.createGain(); g.gain.value = clamp(vol, 0, 1) * 0.85; src.connect(g); g.connect(AC.destination); src.start(); return true;
+  } catch (e) { return false; }
+}
 let voicePick = null;
 function pickVoice() { try { const vs = speechSynthesis.getVoices(); if (!vs.length) return null; const en = vs.filter(v => /^en/i.test(v.lang)); return en.find(v => /female|zira|samantha|aria|jenny|karen|tessa|google us english/i.test(v.name)) || en[0] || vs[0]; } catch (e) { return null; } }
 try { speechSynthesis.onvoiceschanged = () => { voicePick = pickVoice(); }; } catch (e) { }
@@ -1331,10 +1628,17 @@ function chirpVoice(sylls, base, vol) {
   }
 }
 const voiceBase = s => 560 + (KINDS.indexOf(s.kind) * 37) % 170;
-function earVol(pos) { if (P.where !== 'mountain') return 0; return clamp(1 - Math.hypot(pos.x - P.pos.x, pos.z - P.pos.z) / 32, 0, 1); }
+function earVol(pos) {
+  const sIn = inHome(pos.x, pos.z);
+  if (P.where === 'home') return sIn ? clamp(1 - Math.hypot(pos.x - P.pos.x, pos.z - P.pos.z) / 20, 0, 1) : 0.35 * clamp(1 - (Math.hypot(pos.x - OUT_DOOR.x, pos.z - OUT_DOOR.z) + 4) / 32, 0, 1);
+  if (P.where !== 'mountain') return 0;
+  if (sIn) return 0.35 * clamp(1 - (Math.hypot(OUT_DOOR.x - P.pos.x, OUT_DOOR.z - P.pos.z) + 3) / 26, 0, 1);
+  return clamp(1 - Math.hypot(pos.x - P.pos.x, pos.z - P.pos.z) / 32, 0, 1);
+}
 function sayUppies(s) {
   const v = earVol(s.pos); if (v <= 0.03) return;
   floatText(s.pos, 'uppies!', '#ffd0dc');
+  if (playUppiesVo(s, v)) return;
   if (!speak('uppies!', 1.9 + R() * 0.1, 1.2, v)) chirpVoice([[1, 0.15, 640, 1300, 0.02], [1.3, 0.2, 380, 2900], [1.18, 0.24, 420, 3000]], voiceBase(s), 0.07 * v);
 }
 function giggle(s, big = 1) {
@@ -1360,7 +1664,8 @@ function refreshHUD() {
   if (homeless) meta += ` · <span class="warn">${homeless} without a bed</span>`;
   if (hungry) meta += ` · <span class="warn">${hungry} hungry</span>`;
   $('sp-meta').innerHTML = meta;
-  for (const j of ['wood', 'hunt', 'build', 'rest']) $('j-' + j).textContent = spirits.filter(s => s.job === j).length;
+  $('jobCook').classList.toggle('locked', !kitchen.done);
+  for (const j of ['wood', 'hunt', 'build', 'cook', 'rest']) $('j-' + j).textContent = spirits.filter(s => s.job === j).length;
   const open = sites.filter(s => !s.done).length, freeSlot = sites.length < SLOTS.length;
   const ph = $('planHut'); ph.disabled = open >= 2 || !freeSlot;
   ph.textContent = !freeSlot ? 'Every hut spot is used' : open >= 2 ? 'Finish a hut before planning more' : 'Plan a spirit hut · 6 wood';
@@ -1382,14 +1687,16 @@ function refreshHUD() {
     const ac = $('artChips'); ac.innerHTML = ''; const n = Object.values(ART).filter(a => a.got).length; const c = document.createElement('div'); c.className = 'chip art'; c.textContent = `Artifacts ${n}/5`; ac.append(c);
     if (P.where === 'town') { const t = document.createElement('div'); t.className = 'chip art'; t.textContent = 'In the village'; ac.append(t); }
   } else $('goal-head').textContent = 'Next';
+  if (meal.on) { const w = spirits.filter(s => !s.ate).length; g = `Supper time! ${w} wispling${w === 1 ? ' is' : 's are'} drumming on the table in your cabin. Serve 1 food each.`; }
+  else if (cabin.built && !kitchen.done && !table.done && spirits.length >= 2 && level === 1 && !homeless && spirits.length >= WIN_COUNT) g = 'Go inside your cabin. You can build a kitchen and a dinner table there.';
   $('goal-text').textContent = ' ' + g;
 }
 document.querySelectorAll('.job[data-job]').forEach(row => {
   const job = row.dataset.job;
-  row.querySelector('.plus').onclick = () => { const s = spirits.find(s => s.job === 'rest'); if (!s) { toast('No wisplings are resting. Take one off another job first.'); return; } assign(s, job); refreshHUD(); };
+  row.querySelector('.plus').onclick = () => { if (job === 'cook' && !kitchen.done) { toast(cabin.built ? 'Build a kitchen inside your cabin first.' : 'Mend your cabin, then build a kitchen inside it.'); return; } const s = spirits.find(s => s.job === 'rest'); if (!s) { toast('No wisplings are resting. Take one off another job first.'); return; } assign(s, job); refreshHUD(); };
   row.querySelector('.minus').onclick = () => { const s = [...spirits].reverse().find(s => s.job === job); if (s) assign(s, 'rest'); refreshHUD(); };
 });
-function assign(s, job) { s.job = job; if (!s.held && !s.carry && !['toEat', 'eating', 'goBuild', 'building', 'uppies'].includes(s.state)) { s.release(); s.state = 'idle'; } }
+function assign(s, job) { s.job = job; if (!s.held && !s.carry && !['toEat', 'eating', 'goBuild', 'building', 'uppies', 'toTable', 'atTable', 'dining', 'cooking', 'toStove'].includes(s.state)) { s.release(); s.state = 'idle'; } }
 $('planHut').onclick = () => {
   const used = new Set(sites.map(s => s.slot)); const idx = SLOTS.findIndex((_, i) => !used.has(i)); if (idx < 0) return;
   const s = makeHutSite(idx, 0); burst(V(s.x, 1, s.z), 0xffe0a0, 3); toast('Hut planned. Bring 6 wood, or set wisplings to Build.'); refreshHUD();
@@ -1536,7 +1843,11 @@ function itemLabel(it) {
     case 'hairpin': return 'Something glints in the reeds · take it';
     case 'shrine': return 'Make an offering';
     case 'site': return `Build spirit hut · ${it.progress}/${it.need} wood`;
-    case 'cabin': return cabin.built ? (isNight() ? 'Rest until morning' : 'Your cabin · rest here after dusk') : `Mend your cabin · ${cabin.progress}/${cabin.need} wood`;
+    case 'cabin': return cabin.built ? 'Go inside your cabin' : `Mend your cabin · ${cabin.progress}/${cabin.need} wood`;
+    case 'homeDoor': return 'Step outside';
+    case 'bed': return isNight() ? 'Sleep until morning' : 'Your futon · sleep here after dusk';
+    case 'kitchen': return !it.done ? `Build a kitchen · ${it.progress}/${it.need} wood` : W.food >= 2 ? 'Cook a treat · 2 food' : 'Kitchen · cooking a treat takes 2 food';
+    case 'table': { if (!it.done) return `Build a dinner table · ${it.progress}/${it.need} wood`; const n = spirits.filter(s => s.state === 'atTable' && !s.ate).length; return meal.on ? (n ? `Serve supper · ${n} waiting` : 'Supper time · they are coming') : 'Dinner table · supper is at sunset'; }
   }
   return '';
 }
@@ -1578,14 +1889,21 @@ function doInteract(it) {
       return startWork(it, it.need - it.progress, () => { if (W.wood <= 0 || it.done) return false; W.wood--; addProgress(it, 1, true); return true; });
     case 'cabin':
       if (!cabin.built) { if (W.wood <= 0) return toast('Your cabin needs wood to mend.'); return startWork(it, cabin.need - cabin.progress, () => { if (W.wood <= 0 || cabin.built) return false; W.wood--; addProgress(cabin, 1, true); return true; }); }
-      if (isNight()) return rest();
-      return toast('Your cabin. You can rest here after dusk.');
+      return travel('home');
+    case 'homeDoor': return travel('mountain');
+    case 'bed': return isNight() ? rest() : toast('Not sleepy yet. You can sleep here after dusk.');
+    case 'kitchen': case 'table':
+      if (!it.done) { if (W.wood <= 0) return toast('You need wood to build. Chop a tree or ask wisplings to.'); return startWork(it, it.need - it.progress, () => { if (W.wood <= 0 || it.done) return false; W.wood--; addProgress(it, 1, true); return true; }); }
+      if (it.type === 'table') return serveMeal();
+      if (W.food < 2) return toast('You need 2 food to cook a treat.');
+      return startWork(it, 1, () => { if (W.food < 2) return false; W.food -= 2; W.treats++; floatText(P.pos, '+1 treat', '#c9f0c4'); tone(660, 0.15, 'triangle', 0.05); return true; });
   }
 }
 function rest() {
   state = 'resting'; $('fade').style.opacity = 1;
   setTimeout(() => {
     if (!tributeToday && dayT > 0.5) { /* dusk penalty already applied */ }
+    if (meal.on) endMeal();
     if (dayT > 0.5) day++;
     dayT = 0.25; tributeToday = false; spirits.forEach(s => s.hunger = Math.min(100, s.hunger + 25));
     $('fade').style.opacity = 0; state = 'play'; whisper('You slept. I did not.'); refreshHUD();
@@ -1653,6 +1971,8 @@ function update(dt) {
     if (crossed(prev, dayT, 0.22)) { day++; tributeToday = false; whisper(day === 2 ? 'Morning. The bowl is empty again.' : ['Another morning. Another offering.', 'The village is waking. So am I.', 'Good morning, little outcast.'][day % 3]); }
     if (crossed(prev, dayT, 0.7) && !tributeToday) whisper('The sun is going down, and my bowl is empty.');
     if (crossed(prev, dayT, 0.78) && !tributeToday) { wrath = clamp(wrath + 18, 0, 100); shake = 0.6; rumble(); whisper('Nothing? Not even a coin? Remember who you belong to.'); }
+    if (crossed(prev, dayT, MEAL_T)) startMeal();
+    if (crossed(prev, dayT, MEAL_END) && meal.on) endMeal();
     if (crossed(prev, dayT, 0.86)) whisper(wrath > 50 ? 'Look how the village sleeps. As if they earned it.' : 'Listen. The little ones hum when they sleep.');
   }
   const dl = dayLight(dayT); night = 1 - dl;
@@ -1671,7 +1991,8 @@ function update(dt) {
   const heat = clamp((wrath - 40) / 60, 0, 1);
   // sky + lights
   sampleSky(dayT, tmpC); tmpC.lerp(tmpC2.set(0x6a1f2a), heat * 0.45 + (state === 'erupting' ? clamp(endT / 4, 0, 1) * 0.5 : 0));
-  scene.background.copy(tmpC); scene.fog.color.copy(tmpC);
+  scene.background.copy(tmpC); scene.fog.color.copy(tmpC); homeWinMat.color.copy(tmpC); homeLight.intensity = 0.45 + night * 0.6;
+  updateHome(dt);
   sun.intensity = 0.2 + dl * 0.65; sun.color.set(dl > 0.5 ? 0xfff1e0 : 0xb8b0ff);
   hemi.intensity = 0.45 + dl * 0.4; hemi.color.set(0xfff0f6).lerp(tmpC2.set(0x8a7ad0), night * 0.6);
   stars.material.opacity = night * 0.9; flies.material.opacity = night * 0.9;
@@ -1726,6 +2047,7 @@ function update(dt) {
   if (playing) updatePlayer(dt);
   // lady
   updateLady(dt);
+  updateEvil(dt);
   if (state === 'erupting') updateEruption(dt);
   if (state === 'won') updateWin(dt);
   updateLava(dt);
@@ -1789,6 +2111,7 @@ function updatePlayer(dt) {
   const before = P.pos.clone();
   for (const c of colliders) { const dx = P.pos.x - c.x, dz = P.pos.z - c.z, d = Math.hypot(dx, dz), m = c.r + 0.35; if (d < m && d > 0.0001) { P.pos.x = c.x + dx / d * m; P.pos.z = c.z + dz / d * m; } }
   if (P.where === 'town') { P.pos.x = clamp(P.pos.x, TOWN.x0, TOWN.x1); P.pos.z = clamp(P.pos.z, TOWN.z0, TOWN.z1); }
+  else if (P.where === 'home') { P.pos.x = clamp(P.pos.x, HOME.x - HOME.w / 2 + 0.35, HOME.x + HOME.w / 2 - 0.35); P.pos.z = clamp(P.pos.z, HOME.z - HOME.d / 2 + 0.35, HOME.z + HOME.d / 2 - 0.35); }
   else { const r = Math.hypot(P.pos.x, P.pos.z); if (r > 25.5) { P.pos.x *= 25.5 / r; P.pos.z *= 25.5 / r; } if (P.pos.z < -21) P.pos.z = -21; }
   if (P.target && moving && before.distanceTo(P.pos) > 0.001) { P.stuckT = (P.stuckT || 0) + dt; if (P.stuckT > 2.5) { P.stuckT = 0; const it = P.pendingIt; P.target = null; P.pendingIt = null; if (it && inReach(it)) doInteract(it); } } else P.stuckT = 0;
   // work
@@ -1797,7 +2120,7 @@ function updatePlayer(dt) {
     else { P.work.timer -= dt; if (P.work.timer <= 0) { const ok = P.work.fn(); P.work.left--; P.work.timer = 0.6; if (!ok || P.work.left <= 0) P.work = null; else P.work.timer = P.axe > 1 && P.work.it.type === 'tree' ? 0.36 : 0.6; } }
   }
   const working = !!P.work;
-  viewAxe.visible = working && ['tree', 'site', 'cabin'].includes(P.work.it.type) && !P.holding;
+  viewAxe.visible = working && ['tree', 'site', 'cabin', 'kitchen', 'table'].includes(P.work.it.type) && !P.work.it.done && !P.holding;
   viewAxe.rotation.x = working ? -Math.abs(Math.sin(time * 9)) * 1.3 : 0;
   // keep the (hidden) body in sync for the cinematics
   player.g.position.set(P.pos.x, heightAt(P.pos.x, P.pos.z), P.pos.z);
@@ -1850,6 +2173,17 @@ function updateLady(dt) {
   // fully solid (Drig's choice); she only fades out for the endings
   setLadyOpacity(lerp(lady.opacity, ['title', 'play', 'paused', 'resting', 'travel'].includes(state) ? 1 : 0, 0.05));
   let moving = false;
+  L.fighting = false; L.casting = 0;
+  if (state === 'play' && evil.active && evil.hp > 0 && L.mode !== 'thank') {
+    // an evil spirit at the edge: she drops everything, glides out to meet it and drives it off with fox-fire
+    if (L.carrying) ladyPutDown(); L.chase = null; L.hide = null; L.fleeing = false; L.fighting = true;
+    const dx = evil.pos.x - L.pos.x, dz = evil.pos.z - L.pos.z, d = Math.hypot(dx, dz);
+    L.face = Math.atan2(dx, dz);
+    if (d > 4.4) { const st = Math.min(d - 4.4, 5.5 * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; moving = true; L.castT = 0.5; }
+    else { L.casting = 1; L.castT -= dt; if (L.castT <= 0) { L.castT = 1.05; ladyCast(); } }
+    L.target.copy(L.pos);
+    placeLady(moving, dt); return;
+  }
   if (state === 'play') {
     const here = youOnMountain(), dP = here ? Math.hypot(P.pos.x - L.pos.x, P.pos.z - L.pos.z) : 1e9;
     if (L.carrying) { L.carryT -= dt; if (L.carryT <= 0) ladyPutDown(); }
@@ -1863,7 +2197,7 @@ function updateLady(dt) {
     if (!L.carrying && !(L.fleeing && tooClose)) {
       if (L.chase && (L.chase.state !== 'uppies' || L.chase.held)) L.chase = null;
       // she only comes for a wispling when you are not standing right there
-      const okChase = s => s.state === 'uppies' && (s.upTo === 'lady' || s.uppAge > 7) && (!here || Math.hypot(s.pos.x - P.pos.x, s.pos.z - P.pos.z) > 6);
+      const okChase = s => s.state === 'uppies' && !inHome(s.pos.x, s.pos.z) && (s.upTo === 'lady' || s.uppAge > 7) && (!here || Math.hypot(s.pos.x - P.pos.x, s.pos.z - P.pos.z) > 6);
       if (!L.chase) L.chase = spirits.find(okChase) || null;
       else if (!okChase(L.chase)) L.chase = null;
       if (L.chase) { L.target.set(L.chase.pos.x, 0, L.chase.pos.z); L.speed = 2.8; L.hide = null; if (Math.hypot(L.target.x - L.pos.x, L.target.z - L.pos.z) < 1.3) ladyPickUp(L.chase); }
@@ -1897,10 +2231,123 @@ function placeLady(moving, dt = 1 / 60) {
   const giving = state === 'thanks' && L.giving;
   lady.arms.forEach(a => { a.piv.rotation.x = L.carrying || giving ? -1.05 : 0; a.piv.rotation.z = L.carrying ? -a.s * 0.45 : a.s * 0.06; });
   lady.head.rotation.x = L.carrying || L.bow ? 0.25 + (L.bow || 0) : 0;
-  if (ladyVRM) poseVRM(ladyVRM, { carry: L.carrying ? 1 : giving ? 0.8 : 0, headTilt: L.carrying ? 0.25 : (L.bow || 0), mood: L.carrying ? { relaxed: 0.9 } : wrath > 60 ? { angry: clamp((wrath - 50) / 40, 0, 1) } : { sad: 0.45 } }, dt);
+  // what her mask shows
+  const hungryN = spirits.filter(s => s.hunger > 80).length;
+  setLadyFace(L.fighting ? 'angry' : state === 'thanks' ? (L.giving || L.bow ? 'happy' : 'calm') : L.carrying ? 'happy' : wrath > 60 ? 'angry' : L.fleeing ? 'shy' : hungryN || wrath > 45 ? 'sad' : 'calm');
+  updateLadyFace(dt);
+  const fp = FACE_POSE[ladyFace.cur] || FACE_POSE.calm, cast = L.casting ? 0.55 + 0.4 * Math.max(0, Math.sin(time * 6)) : 0;
+  if (L.casting) lady.arms.forEach(a => { a.piv.rotation.x = -1.3 - cast * 0.3; a.piv.rotation.z = a.s * 0.3; });
+  if (ladyVRM) poseVRM(ladyVRM, { armsUp: cast, wave: !!L.casting, carry: L.carrying ? 1 : giving ? 0.8 : 0, headTilt: L.carrying ? 0.25 : (L.bow || 0) + fp[0] * (L.carrying ? 0 : 1) + (L.flinch > 0 ? -0.3 : 0), headRoll: fp[1], mood: {} }, dt);
+  if (L.flinch > 0) L.flinch -= dt;
   spinOrbs();
 }
 function spinOrbs() { lady.orbs.forEach((o, i) => { const a = time * 1.2 + i * 2.09; o.position.set(Math.cos(a) * 0.9, 1.9 + Math.sin(time * 2 + i) * 0.3, Math.sin(a) * 0.9); }); }
+
+// ---------------------------------------------------------------- evil spirits at the edge of the meadow
+// Now and then a ragged shadow with red eyes rises at the rim of the plateau and creeps toward the little ones.
+// She goes out to meet it and drives it off. You just get to watch (and the wisplings hide behind you).
+const evil = { g: null, active: false, pos: V(), hp: 0, t: 0, next: 150 + Math.random() * 60, flinch: 0, fade: 0, dying: 0, bolts: [], id: 0, humT: 0, lashT: 2, seen: 0, mats: [] };
+{
+  const g = new THREE.Group(); g.visible = false; scene.add(g); evil.g = g;
+  const dark = new THREE.MeshBasicMaterial({ color: 0x1a0f26, transparent: true, opacity: 0 }), dark2 = new THREE.MeshBasicMaterial({ color: 0x2b1640, transparent: true, opacity: 0 });
+  dark.userData.base = dark2.userData.base = 0.94; evil.mats.push(dark, dark2);
+  const robe = new THREE.ConeGeometry(0.95, 2.3, 11, 3, true), rp = robe.attributes.position;
+  for (let i = 0; i < rp.count; i++) { const y = rp.getY(i); if (y < -1) { rp.setY(i, y + (Math.sin(i * 2.3) * 0.25)); rp.setX(i, rp.getX(i) * (1 + Math.sin(i * 1.7) * 0.18)); } }
+  robe.computeVertexNormals();
+  const body = new THREE.Group(); g.add(body); evil.body = body;
+  const r = new THREE.Mesh(robe, dark); r.position.y = 1.15; body.add(r);
+  const hd = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), dark); hd.position.y = 2.25; hd.scale.set(1, 1.15, 0.95); body.add(hd);
+  for (const s of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 6), dark2); horn.position.set(s * 0.25, 2.62, 0); horn.rotation.z = -s * 0.5; body.add(horn);
+    const arm = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.3, 7, 1, true), dark2); arm.position.set(s * 0.72, 1.6, 0.15); arm.rotation.z = s * 2.3; body.add(arm);
+    const eye = glow(0xff2a3a, 0.42, 0); eye.position.set(s * 0.15, 2.3, 0.36); body.add(eye); eye.material.userData.base = 0.85; evil.mats.push(eye.material);
+    const eye2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff5060, transparent: true, opacity: 0 })); eye2.position.set(s * 0.15, 2.3, 0.37); eye2.scale.set(1.4, 0.6, 1); body.add(eye2); eye2.material.userData.base = 1; evil.mats.push(eye2.material);
+  }
+  const aura = glow(0x7a2aa0, 4.5, 0); aura.position.y = 1.4; body.add(aura); evil.aura = aura;
+  // smoke that curls off it (dark, not glowing)
+  evil.smoke = [];
+  for (let i = 0; i < 10; i++) { const sm = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x24122f, transparent: true, opacity: 0, depthWrite: false })); g.add(sm); evil.smoke.push({ sm, ph: i / 10 }); }
+}
+function evilOpacity(o) { evil.mats.forEach(m => m.opacity = m.userData.base * o); evil.aura.material.opacity = 0.45 * o; }
+function spawnEvil() {
+  let best = null;
+  for (let i = 0; i < 30; i++) { const a = R() * Math.PI * 2, x = Math.cos(a) * 24.5, z = Math.sin(a) * 24.5; if (z < -16) continue; const dp = Math.hypot(x - P.pos.x, z - P.pos.z); if (dp > 11 && dp < 34) { best = [x, z]; if (R() < 0.5) break; } }
+  if (!best) return false;
+  Object.assign(evil, { active: true, hp: 4, t: 0, fade: 0, dying: 0, flinch: 0, humT: 0, lashT: 2.5 }); evil.id++;
+  evil.pos.set(best[0], 0, best[1]); evil.g.visible = true;
+  evil.seen++;
+  if (evil.seen === 1) { toast('Something dark is rising at the edge of the meadow…'); setTimeout(() => whisper('Stay back. That one is not welcome here.'), 1600); }
+  else if (R() < 0.6) whisper(['Again? Go back to the dark.', 'I can smell it. Stay close to the little ones.', 'Not these children. Never these children.'][evil.seen % 3]);
+  rumble(0.6);
+  return true;
+}
+function ladyCast() {
+  const from = lady.g.localToWorld(V(0, ladyVRM ? 1.45 : 1.8, 0.5));
+  const s = glow(0xffa6d8, 0.9, 0.95); s.position.copy(from); scene.add(s);
+  const core = glow(0xffffff, 0.35, 1); s.add(core); core.scale.setScalar(0.4);
+  evil.bolts.push({ s, from, t: 0, T: 0.5, good: true, side: (R() - 0.5) * 2 });
+  const v = earVol(L.pos); if (v > 0.03) { tone(1175, 0.18, 'sine', 0.035 * v); tone(1568, 0.22, 'sine', 0.025 * v, 0.05); }
+}
+function evilLash() {
+  const from = evil.g.position.clone().add(V(0, 1.7, 0));
+  const s = glow(0x8a2ab0, 0.8, 0.85); s.material = s.material.clone(); s.material.blending = THREE.NormalBlending; s.material.color.set(0x3a1050); s.position.copy(from); scene.add(s);
+  evil.bolts.push({ s, from, t: 0, T: 0.6, good: false, side: (R() - 0.5) * 2 });
+  const v = earVol(evil.pos); if (v > 0.03) tone(98, 0.35, 'sawtooth', 0.03 * v);
+}
+function updateEvil(dt) {
+  if (!evil.active) {
+    if (state === 'play' && time > evil.next && P.where === 'mountain' && L.mode !== 'thank' && spirits.length && !meal.on) { if (!spawnEvil()) evil.next = time + 10; }
+    return;
+  }
+  const playing = state === 'play';
+  evil.t += dt;
+  // rise from the ground, flinch when hit, dissolve when beaten (or slink off if nobody comes)
+  if (evil.dying > 0) { evil.dying += dt; evil.fade = Math.max(0, 1 - evil.dying / 1.3); if (evil.dying > 1.3) { evil.active = false; evil.g.visible = false; evil.next = time + 140 + R() * 160; evil.bolts.forEach(b => scene.remove(b.s)); evil.bolts = []; return; } }
+  else { evil.fade = Math.min(1, evil.fade + dt * 0.7); if (evil.t > 60 && playing) { evil.hp = 0; evil.dying = 0.001; } }
+  evilOpacity(evil.fade);
+  if (playing && evil.hp > 0 && evil.fade > 0.6) {
+    // creep a little way in toward the nearest wispling, but it never leaves the rim
+    let tgt = null, bd = 1e9; for (const s of spirits) { if (inHome(s.pos.x, s.pos.z) || s.held) continue; const d = Math.hypot(s.pos.x - evil.pos.x, s.pos.z - evil.pos.z); if (d < bd) { bd = d; tgt = s; } }
+    if (tgt && Math.hypot(evil.pos.x, evil.pos.z) > 19.5) { const dx = tgt.pos.x - evil.pos.x, dz = tgt.pos.z - evil.pos.z, d = Math.hypot(dx, dz); evil.pos.x += dx / d * 0.55 * dt; evil.pos.z += dz / d * 0.55 * dt; }
+    // the little ones scatter away from it
+    for (const s of spirits) {
+      if (s.held || s.air || s.scaredBy === evil.id || inHome(s.pos.x, s.pos.z)) continue;
+      const dx = s.pos.x - evil.pos.x, dz = s.pos.z - evil.pos.z, d = Math.hypot(dx, dz);
+      if (d < 8 && ['idle', 'wander', 'go', 'work'].includes(s.state)) { s.scaredBy = evil.id; s.release(); s.state = 'wander'; let tx = s.pos.x + dx / d * 7, tz = s.pos.z + dz / d * 7; const r = Math.hypot(tx, tz); if (r > 22) { tx *= 22 / r; tz *= 22 / r; } s.target.set(tx, 0, tz); s.timer = 3; s.setMoods([[1.2, { surprised: 1 }], [3, { sad: 0.7 }]]); floatText(s.pos, '!!', '#ffd0dc'); }
+    }
+    evil.humT -= dt; if (evil.humT <= 0) { evil.humT = 2.2; const v = earVol(evil.pos); if (v > 0.03) { tone(55, 1.8, 'sawtooth', 0.025 * v); tone(58.3, 1.8, 'sine', 0.03 * v); } }
+    if (L.fighting && Math.hypot(L.pos.x - evil.pos.x, L.pos.z - evil.pos.z) < 6) { evil.lashT -= dt; if (evil.lashT <= 0) { evil.lashT = 1.7 + R(); evilLash(); } }
+  }
+  // look and sway
+  const y = heightAt(evil.pos.x, evil.pos.z), rise = Math.min(1, evil.t / 1.6);
+  evil.g.position.set(evil.pos.x, y - 2.4 * (1 - rise) + Math.sin(time * 1.7) * 0.12 + 0.1, evil.pos.z);
+  const look = L.fighting ? L.pos : P.pos; evil.g.rotation.y = lerpAngle(evil.g.rotation.y, Math.atan2(look.x - evil.pos.x, look.z - evil.pos.z), 0.06);
+  if (evil.flinch > 0) evil.flinch -= dt;
+  const sq = evil.flinch > 0 ? 1 - evil.flinch * 0.5 : 1, shrink = evil.dying > 0 ? 1 - evil.dying / 1.6 : 1;
+  evil.body.scale.set((1 + Math.sin(time * 3) * 0.03) * shrink * (2 - sq), (sq + Math.sin(time * 2.3) * 0.03) * shrink, shrink);
+  evil.body.rotation.z = Math.sin(time * 1.3) * 0.06 + (evil.flinch > 0 ? Math.sin(evil.flinch * 40) * 0.12 : 0);
+  evil.smoke.forEach((m, i) => { const ph = (time * 0.35 + m.ph) % 1, a = m.ph * 6.28 + time * 0.6; m.sm.position.set(Math.cos(a) * (0.6 + ph * 0.6), 0.4 + ph * 2.8, Math.sin(a) * (0.6 + ph * 0.6)); m.sm.scale.setScalar(0.6 + ph * 1.4); m.sm.material.opacity = 0.5 * Math.sin(ph * Math.PI) * evil.fade; });
+  // fox-fire and shadow bolts in flight
+  for (let i = evil.bolts.length - 1; i >= 0; i--) {
+    const b = evil.bolts[i]; b.t += dt; const k = Math.min(1, b.t / b.T);
+    const to = b.good ? evil.g.position.clone().add(V(0, 1.6, 0)) : lady.g.position.clone().add(V(0, 1.6, 0));
+    const p = b.from.clone().lerp(to, k); const side = V(-(to.z - b.from.z), 0, to.x - b.from.x).normalize().multiplyScalar(Math.sin(k * Math.PI) * b.side * 0.8);
+    b.s.position.copy(p).add(side).add(V(0, Math.sin(k * Math.PI) * 0.9, 0));
+    if (k >= 1) {
+      scene.remove(b.s); evil.bolts.splice(i, 1);
+      if (b.good && evil.hp > 0) {
+        evil.hp--; evil.flinch = 0.45; burst(to, 0xffc0e0, 2.6); const v = earVol(evil.pos); if (v > 0.03) { tone(220, 0.12, 'square', 0.03 * v); tone(880, 0.2, 'triangle', 0.03 * v, 0.03); }
+        if (evil.hp <= 0) evilBeaten();
+      } else if (!b.good) { L.flinch = 0.35; burst(to, 0x6a2a8a, 1.8); L.pos.addScaledVector(V(Math.sin(L.face), 0, Math.cos(L.face)), -0.4); }
+    }
+  }
+}
+function evilBeaten() {
+  evil.dying = 0.001; burst(evil.g.position.clone().add(V(0, 1.4, 0)), 0xfff0f8, 5); chime();
+  setLadyFace('happy', 4.5); wrath = clamp(wrath - 2, 0, 100);
+  for (const s of spirits) if (!inHome(s.pos.x, s.pos.z) && Math.hypot(s.pos.x - L.pos.x, s.pos.z - L.pos.z) < 20 && !s.held) { s.setMoods([[3, { happy: 1, aa: 0.6 }]]); if (R() < 0.6) floatText(s.pos, ['yay!', '♪', 'hooray!'][Math.floor(R() * 3)], '#ffd0dc'); }
+  if (youOnMountain()) setTimeout(() => whisper(['Gone. It will not touch them.', 'Back to the dark with you.', 'Nobody takes my children. Not again.'][evil.id % 3]), 900);
+}
 
 // ---------------------------------------------------------------- chapter one ends: her thanks
 const giftAxe = new THREE.Group(); scene.add(giftAxe); giftAxe.visible = false;
@@ -2174,10 +2621,13 @@ function updateTown(dt) {
 function travel(to) {
   if (state !== 'play') return;
   if (to === 'town' && day < townBanDay) return toast('The villagers are still angry with you. Wait until morning.');
-  if (P.holding) { const s = P.holding; putDown(); toast(`The ${s.kind.name} wispling hops down. Wisplings won’t leave the mountain.`); }
-  state = 'travel'; P.work = null; P.target = null; P.pendingIt = null; keys.clear(); $('fade').style.opacity = 1; tone(392, 0.5, 'sine', 0.03);
+  if (P.holding && (to === 'town' || P.where === 'town')) { const s = P.holding; putDown(); toast(`The ${s.kind.name} wispling hops down. Wisplings won’t leave the mountain.`); }
+  const from = P.where;
+  state = 'travel'; P.work = null; P.target = null; P.pendingIt = null; keys.clear(); $('fade').style.opacity = 1; tone(to === 'home' || P.where === 'home' ? 330 : 392, 0.5, 'sine', 0.03);
   setTimeout(() => {
     if (to === 'town') { P.where = 'town'; P.pos.set(TOWN_GATE.x, 0, TOWN_GATE.z + 1.5); yaw = Math.PI; }
+    else if (to === 'home') { P.where = 'home'; P.pos.set(IN_DOOR.x, 0, IN_DOOR.z - 0.5); yaw = 0; if (!sawHome) { sawHome = true; setTimeout(() => toast(kitchen.done && table.done ? 'Home.' : 'Your cabin. Room for a kitchen by the wall, and a long table for the little ones.'), 700); } }
+    else if (from === 'home') { P.where = 'mountain'; P.pos.set(OUT_STEP.x, 0, OUT_STEP.z); yaw = Math.atan2(-(OUT_STEP.x - CABIN.x), -(OUT_STEP.z - CABIN.z)); }
     else { P.where = 'mountain'; P.pos.set(townSign.x - 0.8, 0, townSign.z - 2.2); yaw = 0; }
     pitch = -0.05; suspicion = 0; state = 'play'; $('fade').style.opacity = 0;
     if (to === 'town' && !sawTown) { sawTown = true; setTimeout(() => toast('The village. Find the stall, the girl by the well, and the old storehouse by the tower.'), 800); setTimeout(() => toast('Some of the tall ones aren’t people. Don’t look straight at them.'), 4800); }
@@ -2203,6 +2653,7 @@ let rockT = 0, burnt = 0;
 function updateEruption(dt) {
   endT += dt; spinOrbs();
   const rise = clamp(endT / 3, 0, 1);
+  setLadyFace('angry'); updateLadyFace(dt);
   if (ladyVRM) poseVRM(ladyVRM, { armsUp: rise * 0.7, wave: true, mood: { angry: 1 } }, dt);
   lady.g.position.set(0, heightAt(0, -13.5) - 4 + rise * 4.6, -13.5); lady.g.scale.setScalar(1.4 + rise * 1.3);
   if (endT > 2.5 && endT < 2.6) { rumble(4); shake = 2; }
@@ -2306,6 +2757,6 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite };
+window.__shrine = { evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite };
 })();
 </script>
