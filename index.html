@@ -349,7 +349,7 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
 <div class="screen" id="choice" hidden>
   <div class="card">
     <h1>Will you forgive the village?</h1>
-    <div class="sub">You walked up the mountain as Rin, with the village’s torches all around you. Now she is asking you.</div>
+    <div class="sub">You walked up the mountain as Rin, with the village’s torches all around you. The people who did it are a hundred years gone. Their descendants live below. Now she is asking you.</div>
     <div class="row"><button class="btn" id="forgiveBtn">Forgive them</button><button class="btn alt" id="grudgeBtn">Don’t forgive them</button></div>
   </div>
 </div>
@@ -435,8 +435,10 @@ function homeRoom(x, z) { const lx = x - HOME.x, lz = z - HOME.z; if (lz < -4) r
 function homeWaypoint(px, pz, tx, tz) {
   const rp = homeRoom(px, pz), rt = homeRoom(tx, tz); if (rp === rt) return null;
   const pt = a => ({ x: HOME.x + a[0], z: HOME.z + a[1] });
-  if (rp !== 'main') { const d = HDOORS[rp], a = pt(d.in); return Math.hypot(px - a.x, pz - a.z) > 0.3 ? a : pt(d.out); }
-  const d = HDOORS[rt], a = pt(d.out); return Math.hypot(px - a.x, pz - a.z) > 0.3 ? a : pt(d.in);
+  // head for the near side of the doorway, then straight through to the far side (once in the doorway, keep going)
+  const via = (near, far) => { const n = pt(near), f = pt(far), span = Math.hypot(n.x - f.x, n.z - f.z); return Math.hypot(px - n.x, pz - n.z) <= 0.3 || Math.hypot(px - f.x, pz - f.z) < span ? f : n; };
+  if (rp !== 'main') { const d = HDOORS[rp]; return via(d.in, d.out); }
+  const d = HDOORS[rt]; return via(d.out, d.in);
 }
 // where you are allowed to stand indoors: the rooms (less your own width) and the doorway gaps
 const HWALK = (() => { const r = 0.35, out = []; for (const k in HROOMS) { const [a, b, c, d] = HROOMS[k]; out.push([a + r, b - r, c + r, d - r]); } for (const k in HDOORS) { const [x, z] = HDOORS[k].at; if (k.startsWith('bed')) out.push([x - 0.6 + r, x + 0.6 - r, z - 0.7, z + 0.7]); else out.push([x - 0.7, x + 0.7, z - 0.6 + r, z + 0.6 - r]); } return out; })();
@@ -624,6 +626,9 @@ const wisA = { type: 'bedroom', key: 'wisA', label: 'a wispling bedroom', room: 
 const wisB = { type: 'bedroom', key: 'wisB', label: 'a wispling bedroom', room: true, x: HOME.x + 8.25, z: HOME.z + 2, reach: 1.9, progress: 0, need: 8, incoming: 0, done: false };
 const BEDROOMS = [bedP, bedL, wisA, wisB];
 const wispRoomsDone = () => wisA.done && wisB.done;
+const bedtime = () => (dayT > 0.82 || dayT < 0.22) && !meal.on;
+// which tiny futon is whose: three across, two rows, the same as the beds are laid out
+function bedSpot(sp) { const room = sp.home, idx = Math.max(0, spirits.filter(o => o.home === room).indexOf(sp)) % 6, r = Math.floor(idx / 3), c = idx % 3; return { x: room.x - 1.4 + c * 0.95, z: room.z - 0.85 + r * 1.35 }; }
 let bedIt = null, bedGroup = null;
 const SEATS = [], STOVE_SPOTS = [], plates = [], steams = [];
 let stoveFire = null;
@@ -1527,6 +1532,7 @@ class Spirit {
   release() { const t = this.task; if (!t) return; if (t.type === 'log') { const l = t.obj; l.carriers = l.carriers.filter(s => s !== this); if (this.carry === 'haul') this.setCarry(null); } if (t.type === 'tree' || t.type === 'bush') t.obj.reservedN = Math.max(0, t.obj.reservedN - 1); if (t.type === 'rabbit' && t.obj.hunter === this) t.obj.hunter = null; this.task = null; }
   setCarry(c) { this.carry = c; this.log.visible = c === 'log'; this.meat.visible = c === 'meat' || c === 'berry' || c === 'dish'; this.meat.scale.setScalar(c === 'berry' ? 0.7 : 1); }
   pickTask() {
+    if (bedtime() && this.home && this.home.room && !this.inTown) { const b = bedSpot(this); this.state = 'toBed'; this.target.set(b.x, 0, b.z + 0.9); return; }
     if (meal.on && !this.ate && table.done) { const st = seatOf(this); this.state = 'toTable'; this.target.set(st.x, 0, st.z); return; }
     if (this.job === 'cook' && kitchen.done) {
       if (W.food >= 2) { this.state = 'toPantry'; this.target.set(STOCK.x, 0, STOCK.z); return; }
@@ -1686,6 +1692,12 @@ class Spirit {
         break;
       }
       case 'haulLog': break;
+      case 'toBed': if (!bedtime()) { this.state = 'idle'; break; } if (this.moveTo(dt, 2.6, 0.12)) { this.state = 'sleeping'; this.timer = 2 + R() * 3; floatText(this.pos, 'g’night!', '#d8d0ff'); } break;
+      case 'sleeping': {
+        this.face = 0; if (!bedtime()) { this.state = 'idle'; this.setMoods([[2, { happy: 1, aa: 0.4 }]]); break; }
+        this.timer -= dt; if (this.timer <= 0) { this.timer = 4 + R() * 4; if (P.where === 'home') floatText(V(this.pos.x, 0, this.pos.z - 0.6), 'z z z', '#c8c0f0'); }
+        break;
+      }
       case 'building': this.timer -= dt * crewBoost(crewAt(this.task && this.task.obj, ['building', 'goBuild'])); if (this.timer <= 0) { const s = this.task.obj; s.incoming--; this.setCarry(null); this.task = null; addProgress(s, 1, this.pos); this.state = 'idle'; } break;
       case 'toEat': if (this.moveTo(dt, 3.8, 1.2)) { if (W.food > 0) { W.food--; this.hunger = 0; this.state = 'eating'; this.timer = 1.2; floatText(this.pos, '♥', '#ff9ebb'); tone(1046, 0.2, 'sine', 0.03); } else this.state = 'idle'; } break;
       case 'toPantry': if (this.moveTo(dt, 3.6, 1.2)) { if (W.food >= 2) { W.food -= 2; this.setCarry('dish'); this.state = 'toStove'; const sp = STOVE_SPOTS[spirits.indexOf(this) % STOVE_SPOTS.length]; this.target.set(sp.x, 0, sp.z); } else this.state = 'idle'; } break;
@@ -1704,6 +1716,8 @@ class Spirit {
     this.g.position.set(this.pos.x, heightAt(this.pos.x, this.pos.z) + 0.12 + bob, this.pos.z);
     this.g.rotation.y = lerpAngle(this.g.rotation.y, this.face, 0.15);
     const sc = this.spawnT < 0.8 ? elastic(this.spawnT / 0.8) : 1; this.g.scale.setScalar(1.25 * sc);
+    if (this.state === 'sleeping') { const b = bedSpot(this); this.pos.set(b.x, 0, b.z + 0.45); this.g.position.set(b.x, heightAt(b.x, b.z) + 0.17, b.z + 0.42); this.g.rotation.set(-Math.PI / 2, 0, 0); this.g.scale.setScalar(0.92); this.icon.visible = false; }
+    else this.g.rotation.x = 0;
     this.arms.forEach(a => a.piv.rotation.z = drumming ? a.s * (0.5 + lift * 1.4) : asking ? a.s * 2.6 + Math.sin(t * 14 + a.s) * 0.35 : this.carry ? a.s * 2.9 : working ? a.s * (0.6 + Math.abs(Math.sin(t * 12)) * 1.2) : a.s * 0.25 + Math.sin(t * 4 + this.phase) * 0.1);
     this.tail.rotation.y = Math.sin(t * (asking ? 14 : 4) + this.phase) * 0.4;
     this.head.rotation.z = this.sulk > 0 ? 0.25 : Math.sin(t * 2 + this.phase) * 0.06;
@@ -1713,7 +1727,7 @@ class Spirit {
     this.body.position.x = 0;
     this.bubble.visible = asking; this.bubble.scale.set(1.0 + Math.sin(t * 8) * 0.05, 0.47, 1);
     this.icon.visible = !asking && (hungry || homeless); this.icon.material = hungry ? hungryIconMat : homeIconMat;
-    if (this.vrm) { const mv = Math.hypot(this.pos.x - this._lp.x, this.pos.z - this._lp.z) / Math.max(dt, 1e-4); this._lp.copy(this.pos); poseVRM(this.vrm, { armsUp: asking ? 1 : this.carry ? 0.9 : 0, wave: asking, drum: drumming ? lift : undefined, headTilt: drumming ? 0.12 - lift * 0.25 : 0, walk: t * 11 + this.phase, walkAmt: clamp(mv / 3, 0, 1), headRoll: this.sulk > 0 ? 0.25 : 0, mood: this.seqMood(dt) || (this.sulk > 0 ? { angry: 0.8, sad: 0.3 } : drumming ? { happy: 0.75, aa: 0.15 + (1 - lift / 0.32) * 0.35 } : this.state === 'dining' ? { happy: 1, aa: 0.3 + Math.abs(Math.sin(t * 9)) * 0.4 } : asking ? { happy: 0.5, aa: 0.35 + Math.abs(Math.sin(t * 9)) * 0.45 } : this.state === 'eating' ? { happy: 1 } : sad > 0.15 ? { sad: Math.min(1, 0.4 + sad) } : working ? { relaxed: 0.3 } : { relaxed: 0.5 }) }, dt); }
+    if (this.vrm) { const mv = Math.hypot(this.pos.x - this._lp.x, this.pos.z - this._lp.z) / Math.max(dt, 1e-4); this._lp.copy(this.pos); poseVRM(this.vrm, { armsUp: asking ? 1 : this.carry ? 0.9 : 0, wave: asking, drum: drumming ? lift : undefined, headTilt: drumming ? 0.12 - lift * 0.25 : 0, walk: t * 11 + this.phase, walkAmt: clamp(mv / 3, 0, 1), headRoll: this.sulk > 0 ? 0.25 : 0, mood: this.seqMood(dt) || (this.state === 'sleeping' ? { relaxed: 1 } : this.sulk > 0 ? { angry: 0.8, sad: 0.3 } : drumming ? { happy: 0.75, aa: 0.15 + (1 - lift / 0.32) * 0.35 } : this.state === 'dining' ? { happy: 1, aa: 0.3 + Math.abs(Math.sin(t * 9)) * 0.4 } : asking ? { happy: 0.5, aa: 0.35 + Math.abs(Math.sin(t * 9)) * 0.45 } : this.state === 'eating' ? { happy: 1 } : sad > 0.15 ? { sad: Math.min(1, 0.4 + sad) } : working ? { relaxed: 0.3 } : { relaxed: 0.5 }) }, dt); }
     this.halo.material.opacity = (0.2 + night * 0.55) * (inHome(this.pos.x, this.pos.z) ? 0.25 : 1);
   }
 }
@@ -1858,8 +1872,8 @@ function addProgress(s, n, where) {
 const sitesDone = () => sites.filter(s => s.done).length;
 function assignHomes() {
   // once their own bedrooms are built, the wisplings sleep in the house (and the huts go to little yokai)
-  if (wispRoomsDone()) { spirits.forEach((sp, i) => sp.home = i % 2 ? wisB : wisA); return; }
-  const huts = sites.filter(s => s.done); spirits.forEach((sp, i) => sp.home = huts[Math.floor(i / 2)] || null);
+  const rooms = [wisA, wisB].filter(r => r.done), huts = sites.filter(s => s.done);
+  spirits.forEach((sp, i) => { if (i < rooms.length * 6) sp.home = rooms[Math.floor(i / 6)]; else sp.home = huts[Math.floor((i - rooms.length * 6) / 2)] || null; });
 }
 
 // ---------------------------------------------------------------- the lady
@@ -1930,7 +1944,7 @@ function roomDone(s) {
   }
   if (s === bedL) { toast('Rin’s room is finished. A futon, a screen with blossoms, a stand for her mirror.'); whisper('A room for me. In a house. With a door I can open myself.'); refreshHUD(); return; }
   if (s === wisA || s === wisB) {
-    if (!wispRoomsDone()) { toast('A wispling bedroom is finished. Six tiny beds. Build the other one and they can all move in.'); return; }
+    if (!wispRoomsDone()) { assignHomes(); toast('A wispling bedroom is finished. Six wisplings move in and sleep there at night. Build the other one for the rest.'); refreshHUD(); return; }
     assignHomes(); moveInYokai();
     toast('Both wispling bedrooms are done. The little ones move into the house, and their old huts don’t stay empty for long…');
     whisper('Listen. Little feet in the huts. The yokai heard there were empty houses.'); refreshHUD(); return;
@@ -2104,7 +2118,7 @@ function refreshHUD() {
   $('wrathFill').style.width = clamp(wrath, 2, 100) + '%';
   $('wrath').classList.toggle('hot', wrath > 70);
   $('sp-count').textContent = spirits.length;
-  const beds = wispRoomsDone() ? 12 : sitesDone() * 2, homeless = spirits.filter(s => !s.home).length, hungry = spirits.filter(s => s.hunger > 75).length;
+  const beds = wispRoomsDone() ? 12 : sitesDone() * 2 + [wisA, wisB].filter(r => r.done).length * 6, homeless = spirits.filter(s => !s.home).length, hungry = spirits.filter(s => s.hunger > 75).length;
   let meta = `<b>${beds}</b> beds · pantry <b>${W.food}</b> food`;
   if (homeless) meta += ` · <span class="warn">${homeless} without a bed</span>`;
   if (hungry) meta += ` · <span class="warn">${hungry} hungry</span>`;
@@ -2734,7 +2748,13 @@ function updateLady(dt) {
   setLadyOpacity(lerp(lady.opacity, ['title', 'play', 'paused', 'resting', 'travel'].includes(state) ? 1 : 0, 0.05));
   let moving = false;
   L.fighting = false; L.casting = 0;
-  if (L.inHouse && state === 'play') { placeLady(houseLady(dt), dt); return; }
+  if (L.inHouse && state === 'play') {
+    placeLady(houseLady(dt), dt);
+    // asleep on her futon, head on the pillow
+    if (L.sleep) { lady.g.rotation.set(-Math.PI / 2, 0, 0); lady.g.position.set(bedL.x + 0.6, HOME.y + 0.3, bedL.z + 1.15); }
+    else lady.g.rotation.x = 0;
+    return;
+  }
   if (state === 'play' && evil.active && evil.hp > 0 && L.mode !== 'thank') {
     // an evil spirit at the edge: she drops everything, glides out to meet it and drives it off with fox-fire
     if (L.carrying) ladyPutDown(); L.chase = null; L.hide = null; L.fleeing = false; L.fighting = true;
@@ -2816,7 +2836,7 @@ function placeLady(moving, dt = 1 / 60) {
   lady.head.rotation.x = L.carrying || L.bow ? 0.25 + (L.bow || 0) : 0;
   // what her mask shows
   const hungryN = spirits.filter(s => s.hunger > 80).length;
-  setLadyFace(L.fighting || L.scaring ? 'angry' : state === 'thanks' ? (L.giving || L.bow ? 'happy' : 'calm') : L.carrying ? 'happy' : wrath > 60 ? 'angry' : L.fleeing ? 'shy' : hungryN || wrath > 45 ? 'sad' : 'calm');
+  setLadyFace(L.sleep ? 'calm' : L.fighting || L.scaring ? 'angry' : state === 'thanks' ? (L.giving || L.bow ? 'happy' : 'calm') : L.carrying ? 'happy' : wrath > 60 ? 'angry' : L.fleeing ? 'shy' : hungryN || wrath > 45 ? 'sad' : 'calm');
   updateLadyFace(dt);
   const fp = FACE_POSE[ladyFace.cur] || FACE_POSE.calm, cast = L.casting ? 0.55 + 0.4 * Math.max(0, Math.sin(time * 6)) : L.scaring ? 0.75 * L.floatAmt : 0;
   if (L.casting) lady.arms.forEach(a => { a.piv.rotation.x = -1.3 - cast * 0.3; a.piv.rotation.z = a.s * 0.3; });
@@ -3374,7 +3394,7 @@ function scareIntruder() {
 function updateIntruder(dt) {
   const v = intruder.v;
   if (!intruder.on) {
-    if (state === 'play' && youOnMountain() && !evil.active && L.mode !== 'thank' && cabin.built) { intruder.next -= dt; if (intruder.next <= 0) spawnIntruder(); }
+    if (state === 'play' && level < 4 && youOnMountain() && !evil.active && L.mode !== 'thank' && cabin.built) { intruder.next -= dt; if (intruder.next <= 0) spawnIntruder(); }
     return;
   }
   intruder.t += dt;
@@ -3483,7 +3503,7 @@ $('chapter3Btn').onclick = () => {
   setTimeout(() => toast('Build your cabin into a shataku. Start at the plan board by your cabin.'), 6000);
 };
 // in chapter three she will talk to you
-const LADY_TALK = ['My name was Rin. Nobody has said it in a hundred years. You can say it.', 'My father made bells. That is why they named me for one.', 'The rope was too tight. I sang so I would not cry. The little ones remember the song.', 'I was so angry, for so long. It is quieter now. Thank you for that.', 'When the house is done, will you leave a lantern lit for me?', 'The village is not wicked. Only frightened. I was frightened too.'];
+const LADY_TALK = ['My name was Rin. Nobody has said it in a hundred years. You can say it.', 'My father made bells. That is why they named me for one.', 'The rope was too tight. I sang so I would not cry. The little ones remember the song.', 'I was so angry, for so long. It is quieter now. Thank you for that.', 'When the house is done, will you leave a lantern lit for me?', 'Everyone who hurt me is long dead. Would hurting their children’s children’s children really let me rest?'];
 let ladyTalkI = 0;
 const ladyIt = addItem({ type: 'lady', x: 0, z: 0, pos: L.pos, reach: 1.2, obj: (() => { const o = new THREE.Object3D(); scene.add(o); o.visible = false; return o; })() });
 function talkLady() { L.wait = 4; L.target.copy(L.pos); setLadyFace(ladyTalkI % 3 === 2 ? 'shy' : 'happy', 3); whisper(LADY_TALK[ladyTalkI++ % LADY_TALK.length]); tone(784, 0.3, 'sine', 0.03); }
@@ -3600,6 +3620,8 @@ function startChapter4() { if (state !== 'play') return; state = 'paused'; freeM
 $('chapter4Btn').onclick = () => {
   $('chapter4').hidden = true; level = 4; state = 'play'; L.mode = 'near';
   if (evil.active) { evil.hp = 0; evil.dying = 0.001; }
+  // the barrier keeps the villagers off the mountain too
+  if (intruder.on) { intruder.on = false; intruder.v.g.visible = false; L.scareT = 0; }
   barrier.g.visible = true; canvas.focus(); refreshHUD(); chime(); setTimeout(chime, 500);
   toast('A shimmering barrier rises around the meadow. Evil spirits can’t get in anymore.');
   setTimeout(() => whisper('Feel that? My shrine, and your house, and all of them inside it. Nothing bad can come up this mountain now.'), 3000);
@@ -3607,17 +3629,21 @@ $('chapter4Btn').onclick = () => {
 };
 // she comes inside at sunset, serves supper at the head of the table, then goes to her room until morning
 function ladyGoInside() { if (L.carrying) ladyPutDown(); L.inHouse = true; L.task = 'serve'; L.servedTonight = false; L.emptyNoted = false; L.pos.set(IN_DOOR.x, 0, IN_DOOR.z - 0.3); L.target.copy(L.pos); L.chase = null; L.hide = null; L.fleeing = false; L.serveT = 3; L.speed = 1.4; }
-function ladyGoOutside() { L.inHouse = false; L.task = null; L.pos.set(OUT_STEP.x, 0, OUT_STEP.z); L.target.copy(L.pos); L.wait = 1; }
+function ladyGoOutside() { L.inHouse = false; L.sleep = false; lady.g.rotation.x = 0; L.task = null; L.pos.set(OUT_STEP.x, 0, OUT_STEP.z); L.target.copy(L.pos); L.wait = 1; }
 function houseLady(dt) {
-  if (L.task === 'serve' && !meal.on) { L.task = 'room'; if (L.servedTonight) { L.suppers = (L.suppers || 0) + 1; if (L.suppers === 1) setTimeout(() => whisper('I fed them. With my own hands. Is this what it feels like, to be somebody’s mother?'), 1500); refreshHUD(); } }
-  const goal = L.task === 'serve' ? { x: table.x + 2.75, z: table.z } : { x: bedL.x - 0.6, z: bedL.z + 1.6 };
+  // supper's done once nobody is waiting at the table or on the way to it
+  if (L.task === 'serve' && meal.on && L.servedTonight) { const waiting = spirits.some(s => (s.state === 'atTable' && !s.ate) || s.state === 'toTable'); L.doneT = waiting ? 0 : (L.doneT || 0) + dt; }
+  if (L.task === 'serve' && (!meal.on || L.doneT > 5)) { L.task = 'room'; L.doneT = 0; if (L.servedTonight) { L.suppers = (L.suppers || 0) + 1; if (L.suppers === 1) setTimeout(() => whisper('I fed them. With my own hands. Is this what it feels like, to be somebody’s mother?'), 1500); refreshHUD(); } }
+  const goal = L.task === 'serve' ? { x: table.x + 2.75, z: table.z } : { x: bedL.x + 0.6, z: bedL.z + 1.75 };
+  L.sleep = L.task === 'room' && homeRoom(L.pos.x, L.pos.z) === 'bedL' && Math.hypot(goal.x - L.pos.x, goal.z - L.pos.z) < 0.2 && (dayT > 0.8 || dayT < 0.22);
   const wp = homeWaypoint(L.pos.x, L.pos.z, goal.x, goal.z) || goal, dx = wp.x - L.pos.x, dz = wp.z - L.pos.z, d = Math.hypot(dx, dz);
   let moving = false;
   if (d > 0.12) { const st = Math.min(d, 1.4 * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; L.face = Math.atan2(dx, dz); moving = true; }
   else if (L.task === 'serve') {
     L.face = lerpAngle(L.face, -Math.PI / 2, 0.1); L.serveT -= dt;
     if (L.serveT <= 0) { L.serveT = 2.2; if (serveMeal('lady') > 0) setLadyFace('happy', 2); }
-  } else if (P.where === 'home' && homeRoom(P.pos.x, P.pos.z) === 'bedL') L.face = lerpAngle(L.face, Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z), 0.05);
+  } else if (L.sleep) L.face = 0;
+  else if (P.where === 'home' && homeRoom(P.pos.x, P.pos.z) === 'bedL') L.face = lerpAngle(L.face, Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z), 0.05);
   if (L.task === 'room' && dayT > 0.24 && dayT < 0.5) ladyGoOutside();
   return moving;
 }
@@ -3719,16 +3745,16 @@ function endMemory() {
   camPos.set(5, heightAt(5, -6) + 2.2, -5); camLook.set(0, 1.2, -10);
   state = 'ask'; endT = 0; cine.f = null; freeMouse();
 }
-const ASK_LINES = [[1, 'You saw it. You were me, for a little while.'], [6, 'They were frightened. So was I. I have been angry for a hundred years.'], [12, 'Tell me, little outcast. Should I forgive them?']];
+const ASK_LINES = [[1, 'You saw it. You were me, for a little while.'], [6, 'The ones who tied that rope have been dead for a hundred years. The people down there now are their great-great-grandchildren. They never even knew my name.'], [14, 'If I burn them for it, does that set me free? Or does it only make me the thing that killed me?'], [21, 'Tell me, little outcast. Should I forgive them?']];
 function updateAsk(dt) {
   endT += dt; document.body.classList.add('cine');
   for (const [t, line] of ASK_LINES) if (endT - dt < t && endT >= t) whisper(line);
   const dx = P.pos.x - L.pos.x, dz = P.pos.z - L.pos.z, d = Math.hypot(dx, dz); let moving = false;
   if (d > 2.6) { const st = Math.min(d - 2.6, 1.2 * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; moving = true; }
-  L.face = Math.atan2(dx, dz); setLadyOpacity(1); setLadyFace(endT < 6 ? 'sad' : 'calm');
+  L.face = Math.atan2(dx, dz); setLadyOpacity(1); setLadyFace(endT < 14 ? 'sad' : 'calm');
   placeLady(moving, dt); syncPlayerBody(dt, L.pos);
   aimTwo(P.pos, L.pos);
-  if (endT > 15 && $('choice').hidden && state === 'ask' && !MEM.chosen) { $('choice').hidden = false; setTimeout(() => $('forgiveBtn').focus(), 30); }
+  if (endT > 24 && $('choice').hidden && state === 'ask' && !MEM.chosen) { $('choice').hidden = false; setTimeout(() => $('forgiveBtn').focus(), 30); }
 }
 // forgive: she becomes the mountain's god, and the village climbs the hill to honour her again
 const worshippers = [];
