@@ -181,6 +181,14 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
 #restoreBox h4{margin:0 0 4px;font-size:15px}
 #chapter h1{color:var(--dusk)}
 body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none!important}
+#cineHint{display:none;position:fixed;right:14px;bottom:12px;z-index:25;font-size:12.5px;color:#fff;background:rgba(20,16,36,.45);padding:5px 10px;border-radius:999px;pointer-events:none;letter-spacing:.2px}
+body.cine #cineHint{display:block}
+#cineHint.ff{background:rgba(120,70,160,.7)}
+#cineHint{overflow:hidden}
+#skipBar{position:absolute;left:0;bottom:0;height:3px;width:0;background:#ffd6ec;border-radius:2px}
+#skipVeil{display:none;position:fixed;inset:0;z-index:28;background:#0d0a18;color:#f4eef8;font-family:var(--brush);font-size:28px;place-items:center}
+#skipVeil.on{display:grid}
+@media (pointer: coarse){body.cine #cineHint{display:none}}
 @media (max-width:1150px){.chip small{display:none}}
 @media (max-width:860px){
   #res{padding:8px 9px;max-width:calc(50vw - 24px)}
@@ -240,6 +248,8 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
 </div>
 
 <div class="hud" id="cross"></div>
+<div id="cineHint"><span id="cineHintText">Hold <b>Space</b> to speed up, 3 s to skip · <b>Esc</b> to pause</span><i id="skipBar"></i></div>
+<div id="skipVeil">Skipping…</div>
 <div class="hud" id="lookHint">Click to look around · hold Alt to use the buttons · Esc pauses</div>
 <div class="hud" id="stick" hidden><i id="knob"></i></div>
 <div class="hud panel" id="prompt"></div>
@@ -564,6 +574,7 @@ function placeY(g, x, z) { g.position.set(x, heightAt(x, z), z); }
 // shrine
 const SHRINE = V(0, 0, -16);
 let shrineG = null;
+const camSolids = []; // gates, lanterns and other solid props the cutscene camera must see past
 const shrineLight = new THREE.PointLight(0xff9ed1, 1.2, 14, 2);
 const shrineGlow = glow(0xff9ed1, 3.2, 0.8);
 {
@@ -586,14 +597,14 @@ const shrineGlow = glow(0xff9ed1, 3.2, 0.8);
   shrineLight.position.set(0, 1.5, 1.6); g.add(shrineLight);
   shrineGlow.position.set(0, 1.5, 1.2); g.add(shrineGlow);
   // torii
-  const t = new THREE.Group(); placeY(t, 0, -10); scene.add(t);
+  const t = new THREE.Group(); placeY(t, 0, -10); scene.add(t); camSolids.push(t);
   for (const sx of [-1.9, 1.9]) { outline(M(new THREE.CylinderGeometry(0.2, 0.24, 4.2, 10), red, sx, 2.1, 0, t), 1.08); colliders.push({ x: sx, z: -10, r: 0.35 }); }
   outline(M(new THREE.BoxGeometry(2.6, 0.3, 0.5), mat(0x2a2238), -1.25, 4.3, 0, t), 1.04).rotation.z = 0.06;
   outline(M(new THREE.BoxGeometry(2.6, 0.3, 0.5), mat(0x2a2238), 1.25, 4.3, 0, t), 1.04).rotation.z = -0.06;
   M(new THREE.BoxGeometry(4.6, 0.22, 0.32), red, 0, 3.55, 0, t);
   // stone lanterns
   for (const sx of [-3.2, 3.2]) {
-    const l = new THREE.Group(); placeY(l, sx, -12.8); scene.add(l);
+    const l = new THREE.Group(); placeY(l, sx, -12.8); scene.add(l); camSolids.push(l);
     M(new THREE.CylinderGeometry(0.35, 0.45, 0.3, 6), stone, 0, 0.15, 0, l);
     M(new THREE.CylinderGeometry(0.12, 0.14, 0.9, 6), stone, 0, 0.75, 0, l);
     M(new THREE.BoxGeometry(0.6, 0.5, 0.6), mat(0xfff0c8, { emissive: 0xffc890, emissiveIntensity: 0.5 }), 0, 1.4, 0, l);
@@ -2105,8 +2116,9 @@ spawnSpirit(true);
 // ---------------------------------------------------------------- audio
 let AC = null, muted = false;
 function audioOn() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } } if (AC && AC.state === 'suspended') AC.resume(); loadUppies(); }
+let skipping = false;
 function tone(f, d = 0.3, type = 'sine', v = 0.06, delay = 0) {
-  if (!AC || muted) return;
+  if (!AC || muted || skipping) return;
   try { const o = AC.createOscillator(), g = AC.createGain(), t0 = AC.currentTime + delay; o.type = type; o.frequency.setValueAtTime(f, t0); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + 0.05); } catch (e) { }
 }
 function chime() { [784, 988, 1319, 1568].forEach((f, i) => tone(f, 0.9, 'sine', 0.05, i * 0.08)); }
@@ -2419,7 +2431,13 @@ const stick = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
 let drag = null;
 function showStick(on) { $('stick').hidden = !on; if (on) { $('stick').style.left = (stick.ox - 55) + 'px'; $('stick').style.top = (stick.oy - 55) + 'px'; $('knob').style.transform = 'translate(0px,0px)'; } }
 function grabMouse() { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-let freeingMouse = false;
+let freeingMouse = false, ffHeld = false;
+addEventListener('keydown', e => {
+  if (e.code !== 'Space' || !CINE_STATES.includes(state) || modalsOpen()) return;
+  e.preventDefault(); e.stopImmediatePropagation(); ffHeld = true; $('cineHint').classList.add('ff');
+}, true);
+addEventListener('keyup', e => { if (e.code !== 'Space') return; if (ffHeld) { e.preventDefault(); ffHeld = false; } $('cineHint').classList.remove('ff'); }, true);
+addEventListener('blur', () => { ffHeld = false; });
 function freeMouse() { try { if (document.pointerLockElement) { freeingMouse = true; document.exitPointerLock(); } } catch (e) { } }
 document.addEventListener('pointerlockchange', () => {
   $('lookHint').classList.toggle('off', !!document.pointerLockElement);
@@ -2747,7 +2765,7 @@ function update(dt) {
 
   // HUD
   if (ui.toastT > 0) { ui.toastT -= dt; if (ui.toastT <= 0) $('toast').classList.remove('on'); }
-  if (ui.whisperT > 0) { ui.whisperT -= dt; if (ui.whisperT <= 0) $('whisper').classList.remove('on'); }
+  if (ui.whisperT > 0 && state !== 'paused') { ui.whisperT -= dt; if (ui.whisperT <= 0) $('whisper').classList.remove('on'); }
   hudT -= dt; if (hudT <= 0) { hudT = 0.2; refreshHUD(); updatePrompt(); }
 }
 let running = false;
@@ -3619,12 +3637,23 @@ function talkLady() { L.wait = 4; L.target.copy(L.pos); setLadyFace(ladyTalkI % 
 // ---------------------------------------------------------------- cutscene camera: keep you and her both in view
 // Tries a ring of camera spots around the two of you and keeps the one where no tree or house is in the way.
 const _fr = new THREE.Raycaster(); _fr.camera = camera;
-function camBlockers() { const list = []; for (const t of trees) if (t.obj.visible && t.canopy.visible) list.push(t.obj); if (cabin.obj.visible) list.push(cabin.obj); for (const s of sites) if (s.obj.visible) list.push(s.obj); return list; }
+function camBlockers() {
+  const list = []; for (const t of trees) if (t.obj.visible && t.canopy.visible) list.push(t.obj);
+  if (cabin.obj.visible) list.push(cabin.obj); for (const s of sites) if (s.obj.visible) list.push(s.obj);
+  // the shrine, its gate and lanterns, the peddler's stall, the village houses and yokai huts
+  if (shrineG && shrineG.visible) list.push(shrineG); for (const o of camSolids) if (o.visible) list.push(o);
+  if (stockG && stockG.visible) list.push(stockG); for (const h of houses) if (h.g.visible) list.push(h.g);
+  return list;
+}
+// is anything solid between the camera spot and the point it looks at?
+function camBlocked(cp, tp, blockers = camBlockers()) { const v = tp.clone().sub(cp), d = v.length(); if (d < 0.8) return false; _fr.set(cp, v.divideScalar(d)); _fr.far = d - 0.6; return _fr.intersectObjects(blockers, true).length > 0; }
+// a fixed shot, unless something is in the way: then frame the subject instead
+function safeShot(pos, look, subj, o) { if (!camBlocked(pos, look)) { camTargetPos = pos; camTargetLook = look; return; } aimTwo(subj || look, subj || look, o); }
 function frameTwo(a, b, o = {}) {
   const ya = heightAt(a.x, a.z), yb = heightAt(b.x, b.z);
   const mid = V((a.x + b.x) / 2, Math.max(ya, yb), (a.z + b.z) / 2);
-  const dx = b.x - a.x, dz = b.z - a.z, sep = Math.hypot(dx, dz) || 1, side = V(dz / sep, 0, -dx / sep);
-  const dist = (o.dist || 0) + Math.max(4.8, sep * 1.0 + 3.4), up = o.up || 1.9, blockers = camBlockers();
+  const dx = b.x - a.x, dz = b.z - a.z, sep0 = Math.hypot(dx, dz), sep = sep0 || 1, side = sep0 < 0.01 ? V(Math.sin(o.face || 0), 0, Math.cos(o.face || 0)) : V(dz / sep, 0, -dx / sep);
+  const dist = o.near != null ? o.near : (o.dist || 0) + Math.max(4.8, sep * 1.0 + 3.4), up = o.up || 1.9, blockers = camBlockers();
   let best = null, bs = 1e9;
   for (const ang of [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]) for (const sg of [1, -1]) {
     const dir = side.clone().multiplyScalar(sg).applyAxisAngle(V(0, 1, 0), ang);
@@ -3633,7 +3662,7 @@ function frameTwo(a, b, o = {}) {
     if (o.prefer && o.prefer.distanceTo(cp) > 1.5) sc += 0.4;
     if (P.where === 'mountain' && !inHome(a.x, a.z) && Math.hypot(cp.x, cp.z) > 30) sc += 4;
     for (const [p, y] of [[a, ya], [b, yb]]) {
-      for (const hh of [0.5, 1.5]) { const tp = V(p.x, y + hh, p.z), v = tp.clone().sub(cp), d = v.length(); _fr.set(cp, v.divideScalar(d)); _fr.far = Math.max(0.1, d - 0.7); if (_fr.intersectObjects(blockers, true).length) sc += 6; }
+      for (const hh of [0.5, 1.5, 2.3]) { const tp = V(p.x, y + hh, p.z), v = tp.clone().sub(cp), d = v.length(); _fr.set(cp, v.divideScalar(d)); _fr.far = Math.max(0.1, d - 0.7); if (_fr.intersectObjects(blockers, true).length) sc += 6; }
     }
     if (sc < bs) { bs = sc; best = cp; }
   }
@@ -3916,7 +3945,7 @@ function updateGod(dt) {
   }
   if (endT > 15 && endT - dt <= 15) { [0, 0.4, 0.8].forEach(d => tone(1046, 1.2, 'sine', 0.03, d)); }
   spirits.forEach(s => { if (!s.held) { s.g.position.y = heightAt(s.pos.x, s.pos.z) + 0.12 + Math.abs(Math.sin(time * 5 + s.phase)) * 0.12; } });
-  if (endT < 8) aimTwo(P.pos, L.pos); else { camTargetPos = V(5.5, heightAt(5.5, 5) + 4.6, 5); camTargetLook = V(0, 1.4, -8.5); }
+  if (endT < 8) aimTwo(P.pos, L.pos); else safeShot(V(5.5, heightAt(5.5, 5) + 4.6, 5), V(0, 1.4, -8.5), L.pos, { near: 7, up: 2.6, lookY: 1.8 });
   if (endT > 21 && $('end').hidden) showEnd('god');
 }
 // don't forgive: the mountain erupts, and the next night the village's angry dead come for everyone but her
@@ -3999,33 +4028,41 @@ function updateAftermath(dt) {
   if (!P.clingers) { const near = spirits.slice().sort((p, q) => p.pos.distanceTo(P.pos) - q.pos.distanceTo(P.pos)); P.clingers = near.slice(0, Math.min(3, near.length)); spirits.forEach((x, i) => { const an = R() * 6.28; x.scat = { x: Math.cos(an), z: Math.sin(an) }; x.runPh = R() * 6; }); }
   const running = t > 6.2, scattered = alive.filter(x => !P.clingers.includes(x)), clingAlive = alive.filter(x => P.clingers.includes(x));
   const tier = scattered.length ? scattered : clingAlive.length ? clingAlive : [];
+  let wi = 0;
   for (const w of wraiths) {
+    wi++;
     // once nobody is left but her, they sink back into the earth
     w.rise = everyoneGone ? Math.max(0, w.rise - dt * 0.35) : Math.min(1, w.rise + dt * 0.5); w.g.visible = w.rise > 0.01;
     if (t > 4.2 && !everyoneGone) {
       // chase whoever is closest in the current group: the scattered ones first, then the ones clinging to you, then you
       const bad = w.target && (w.target === 'player' ? (P.gone || tier.length) : (w.target.gone || !tier.includes(w.target)));
       if (!w.target || bad || R() < dt * 0.3) { let best = null, bd = 1e9; for (const x of tier) { const d = Math.hypot(x.pos.x - w.pos.x, x.pos.z - w.pos.z); if (d < bd) { bd = d; best = x; } } w.target = best || (!P.gone ? 'player' : null); }
-      const tp = w.target === 'player' ? P.pos : w.target ? w.target.pos : L.pos, dx = tp.x - w.pos.x, dz = tp.z - w.pos.z, d = Math.hypot(dx, dz);
-      const stop = w.target ? 0.5 : 3.2, sp = 3.0 + clamp((t - 9) * 0.08, 0, 1.4);
+      // they don't just trail behind: they cut ahead of where you're running, from both sides, so circling doesn't save you
+      let tp = w.target === 'player' ? P.pos : w.target ? w.target.pos : L.pos;
+      const tv = w.target === 'player' ? P.vel : w.target && w.target.vel;
+      if (tv && w.target) { const dd = Math.hypot(tp.x - w.pos.x, tp.z - w.pos.z), lead = Math.min(2.2, dd / 3) * (wi % 3 === 0 ? 0 : 1); tp = V(tp.x + tv.x * lead + (wi % 2 ? tv.z : -tv.z) * lead * 0.5, 0, tp.z + tv.z * lead + (wi % 2 ? -tv.x : tv.x) * lead * 0.5); }
+      const dx = tp.x - w.pos.x, dz = tp.z - w.pos.z, d = Math.hypot(dx, dz), real = w.target === 'player' ? P.pos : w.target ? w.target.pos : L.pos, dReal = Math.hypot(real.x - w.pos.x, real.z - w.pos.z);
+      const stop = w.target ? 0.2 : 3.2, sp = 3.0 + clamp((t - 9) * 0.15, 0, 3);
       if (d > stop) { const st = Math.min(d - stop, sp * dt); w.pos.x += dx / d * st; w.pos.z += dz / d * st; }
       w.g.rotation.y = Math.atan2(dx, dz);
       // the lights go out, one by one
-      if (w.target && w.target !== 'player' && d < 0.9 && !w.target.gone) { w.target.gone = 0.001; burst(w.target.g.position.clone().add(V(0, 0.6, 0)), 0x3a2a4a, 2); tone(220, 0.6, 'sine', 0.03); tone(165, 0.8, 'sine', 0.03, 0.15); if (alive.length === spirits.length) setTimeout(() => whisper('No! Not them! Not my children!'), 300); if (P.clingers.includes(w.target) && clingAlive.length === P.clingers.length) setTimeout(() => whisper('Hold on to them! Please!'), 400); }
-      if (w.target === 'player' && d < 1.0 && !P.gone) { P.gone = 0.001; burst(player.g.position.clone().add(V(0, 1.2, 0)), 0x3a2a4a, 3); tone(110, 1.5, 'sawtooth', 0.03); }
+      if (w.target && w.target !== 'player' && dReal < 0.9 && !w.target.gone) { w.target.gone = 0.001; burst(w.target.g.position.clone().add(V(0, 0.6, 0)), 0x3a2a4a, 2); tone(220, 0.6, 'sine', 0.03); tone(165, 0.8, 'sine', 0.03, 0.15); if (alive.length === spirits.length) setTimeout(() => whisper('No! Not them! Not my children!'), 300); if (P.clingers.includes(w.target) && clingAlive.length === P.clingers.length) setTimeout(() => whisper('Hold on to them! Please!'), 400); }
+      if (w.target === 'player' && dReal < 1.0 && !P.gone) { P.gone = 0.001; burst(player.g.position.clone().add(V(0, 1.2, 0)), 0x3a2a4a, 3); tone(110, 1.5, 'sawtooth', 0.03); }
     }
     w.g.position.set(w.pos.x, heightAt(w.pos.x, w.pos.z) - 2.2 * (1 - w.rise) + Math.sin(time * 1.6 + w.ph) * 0.1, w.pos.z);
   }
   // you run, and the three hold on to you as you go
   let pdir = null;
-  if (running && !P.gone) { pdir = fleeDir(P.pos); const sp = 2.5; P.pos.x += pdir.x * sp * dt; P.pos.z += pdir.z * sp * dt; P.runFace = lerpAngle(P.runFace || 0, Math.atan2(pdir.x, pdir.z), 1 - Math.exp(-dt * 5)); }
+  P.vel = P.vel || V(); P.vel.set(0, 0, 0);
+  if (running && !P.gone) { pdir = fleeDir(P.pos); const sp = 2.5 * Math.max(0.6, 1 - Math.max(0, t - 12) * 0.04); P.vel.set(pdir.x * sp, 0, pdir.z * sp); P.pos.x += pdir.x * sp * dt; P.pos.z += pdir.z * sp * dt; P.runFace = lerpAngle(P.runFace || 0, Math.atan2(pdir.x, pdir.z), 1 - Math.exp(-dt * 5)); }
   for (const x of spirits) {
     if (!x.gone && running) {
       let tx, tz, sp;
       if (P.clingers.includes(x) && !P.gone) { const k = P.clingers.indexOf(x), an = P.runFace + Math.PI + (k - 1) * 1.35; tx = P.pos.x + Math.sin(an) * 1.0; tz = P.pos.z + Math.cos(an) * 1.0; sp = 3.4; }
       else { const f = fleeDir(x.pos, x.scat); tx = x.pos.x + f.x; tz = x.pos.z + f.z; sp = 2.25 + (x.phase % 1) * 0.3; }
       const dx = tx - x.pos.x, dz = tz - x.pos.z, d = Math.hypot(dx, dz);
-      if (d > 0.05) { const st = Math.min(d, sp * dt); x.pos.x += dx / d * st; x.pos.z += dz / d * st; x.face = Math.atan2(dx, dz); }
+      x.vel = x.vel || V(); x.vel.set(0, 0, 0);
+      if (d > 0.05) { const st = Math.min(d, sp * dt); x.pos.x += dx / d * st; x.pos.z += dz / d * st; x.face = Math.atan2(dx, dz); x.vel.set(dx / d * sp, 0, dz / d * sp); }
       x.runPh = (x.runPh || 0) + dt * 13;
     }
     x.g.position.set(x.pos.x, heightAt(x.pos.x, x.pos.z) + 0.12 + (running && !x.gone ? Math.abs(Math.sin(x.runPh)) * 0.08 : 0), x.pos.z); x.g.rotation.set(0, lerpAngle(x.g.rotation.y, x.face, 0.15), 0); if (x.body) x.body.rotation.set(0, 0, 0);
@@ -4080,9 +4117,9 @@ function updateAftermath(dt) {
   if (!allGone) {
     if (t < 4) aimTwo(P.pos, L.pos, { dist: 2.5, up: 2.6 });
     else if (t < 5.4) { camTargetPos = V(9, 11, 14); camTargetLook = V(0, 4, -6); }
-    else if (t < 8) { camTargetPos = L.pos.clone().add(V(2.6, heightAt(L.pos.x, L.pos.z) + 2.4, 4.2)); camTargetLook = L.pos.clone().add(V(0, heightAt(L.pos.x, L.pos.z) + 1.7, 0)); }
-    else if (!P.gone) { const fx = Math.sin(P.runFace), fz = Math.cos(P.runFace), gy = heightAt(P.pos.x, P.pos.z); camTargetPos = V(P.pos.x - fx * 6 + fz * 2, gy + 3.6, P.pos.z - fz * 6 - fx * 2); camTargetLook = V(P.pos.x + fx * 2, gy + 0.9, P.pos.z + fz * 2); }
-  } else { camTargetPos = L.pos.clone().add(V(3.2, heightAt(L.pos.x, L.pos.z) + 1.8, 3.4)); camTargetLook = L.pos.clone().add(V(0, heightAt(L.pos.x, L.pos.z) + 1.0, 0)); }
+    else if (t < 8) aimTwo(L.pos, L.pos, { near: 5, up: 2.4, lookY: 1.7, face: L.face });
+    else if (!P.gone) { const fx = Math.sin(P.runFace), fz = Math.cos(P.runFace), gy = heightAt(P.pos.x, P.pos.z); const lk = V(P.pos.x + fx * 2, gy + 0.9, P.pos.z + fz * 2); let cp = V(P.pos.x - fx * 6 + fz * 2, gy + 3.6, P.pos.z - fz * 6 - fx * 2); if (camBlocked(cp, V(P.pos.x, gy + 1, P.pos.z))) cp = V(P.pos.x - fx * 3.5, gy + 7, P.pos.z - fz * 3.5); camTargetPos = cp; camTargetLook = lk; }
+  } else aimTwo(L.pos, L.pos, { near: 4.4, up: 1.7, lookY: 1.1, face: L.face });
 }
 
 // ---------------------------------------------------------------- endings
@@ -4129,7 +4166,7 @@ function updateWin(dt) {
   // she looks at you, then turns toward the village below
   lady.g.rotation.y = endT < 4 ? Math.atan2(P.pos.x, P.pos.z + 12) : lerpAngle(lady.g.rotation.y, 0, 0.02);
   spirits.forEach(s => s.update(dt * 0.5, time)); syncPlayerBody(dt, lady.g.position);
-  if (endT < 4.5) aimTwo(P.pos, V(0, 0, -12), { up: 2.2, lookY: 1.8 }); else { camTargetPos = V(P.pos.x * 0.5, heightAt(P.pos.x, P.pos.z + 5) + 4.5, P.pos.z + 7); camTargetLook = V(0, 2.4, -11.5); }
+  if (endT < 4.5) aimTwo(P.pos, V(0, 0, -12), { up: 2.2, lookY: 1.8 }); else safeShot(V(P.pos.x * 0.5, heightAt(P.pos.x, P.pos.z + 5) + 4.5, P.pos.z + 7), V(0, 2.4, -11.5), V(0, 0, -12), { near: 8, up: 3, lookY: 2.4 });
   if (endT > 8 && $('end').hidden) showEnd(true);
 }
 function showEnd(won) {
@@ -4169,18 +4206,20 @@ $('startBtn').onclick = () => {
 const SAVE_KEY = n => 'ash-save-' + n, SAVE_SLOTS = 3;
 let pauseFromTitle = false;
 const modalsOpen = () => ['questPanel', 'shrineModal', 'tradeModal', 'charModal', 'lookModal', 'title', 'chapter', 'chapter3', 'chapter4', 'choice', 'end', 'pauseMenu'].some(id => $(id) && !$(id).hidden);
-const canPause = () => state === 'play' && !modalsOpen();
+const CINE_STATES = ['thanks', 'memory', 'ask', 'god', 'won', 'erupting', 'aftermath'];
+let pausedFrom = 'play';
+const canPause = () => (state === 'play' || CINE_STATES.includes(state)) && !modalsOpen() && !skipping;
 function openPause() {
   if (!canPause()) return;
-  state = 'paused'; keys.clear(); P.target = null; freeMouse(); pauseFromTitle = false;
+  pausedFrom = state; state = 'paused'; keys.clear(); P.target = null; freeMouse(); pauseFromTitle = false; ffHeld = false;
   $('pauseMenu').hidden = false; showPauseMain(); setTimeout(() => $('resumeBtn').focus(), 30);
 }
 function closePause() {
   $('pauseMenu').hidden = true;
   if (pauseFromTitle) { pauseFromTitle = false; $('title').hidden = false; return; }
-  state = 'play'; canvas.focus();
+  state = pausedFrom || 'play'; pausedFrom = 'play'; canvas.focus();
 }
-function showPauseMain() { $('pauseTitle').textContent = 'Paused'; $('pauseSub').textContent = 'The mountain waits for you. Nothing moves until you come back.'; $('pauseRow').hidden = false; $('slotBox').hidden = true; }
+function showPauseMain() { const inScene = pausedFrom !== 'play'; $('saveMenuBtn').disabled = inScene; $('pauseHelpBtn').hidden = inScene; $('pauseTitle').textContent = 'Paused'; $('pauseSub').textContent = inScene ? 'The scene waits for you. (You can save once it’s over.)' : 'The mountain waits for you. Nothing moves until you come back.'; $('pauseRow').hidden = false; $('slotBox').hidden = true; }
 function readSlot(n) { try { const t = localStorage.getItem(SAVE_KEY(n)); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
 function slotLabel(d) {
   if (!d) return 'Empty';
@@ -4396,16 +4435,27 @@ loadSavedModels().then(() => applyPlayerLook());
 P.pos.set(3, 0, 4); player.g.position.set(3, heightAt(3, 4), 4);
 camPos.set(0, 20, 30); camLook.set(0, 0, -6);
 refreshHUD();
-let last = performance.now();
+let last = performance.now(), lastReal = performance.now(), ffT = 0;
+const SCENE_CARDS = ['chapter', 'chapter3', 'chapter4', 'choice', 'end'];
+const skipDone = () => !CINE_STATES.includes(state) || SCENE_CARDS.some(id => $(id) && !$(id).hidden);
+function startSkip() { skipping = true; quietMsgs = true; ffHeld = false; $('cineHint').classList.remove('ff'); $('skipVeil').classList.add('on'); $('whisper').classList.remove('on'); }
+function endSkip() { skipping = false; quietMsgs = false; ffT = 0; $('skipVeil').classList.remove('on'); }
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
-  const steps = window.__ts || 1; for (let i = 0; i < steps; i++) update(dt);
+  // hold Space in a scene: it plays 4x faster, and after 3 seconds it skips to the end
+  const inScene = CINE_STATES.includes(state);
+  if (ffHeld && inScene && !skipping) { ffT += Math.min(0.5, Math.max(0, (now - lastReal) / 1000)); if (ffT >= 3) startSkip(); } else if (!skipping) ffT = 0;
+  lastReal = now; $('skipBar').style.width = (skipping ? 100 : clamp(ffT / 3, 0, 1) * 100) + '%';
+  if (skipping) {
+    for (let i = 0; i < 120 && !skipDone(); i++) update(0.05);
+    if (skipDone()) endSkip();
+  } else { const steps = (window.__ts || 1) * (ffHeld && inScene ? 4 : 1); for (let i = 0; i < steps; i++) update(dt); }
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { binds, openShrine, snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
+window.__shrine = { get skipping() { return skipping; }, get pausedFrom() { return pausedFrom; }, binds, openShrine, snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
 })();
 </script>
