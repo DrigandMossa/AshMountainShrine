@@ -1761,11 +1761,13 @@ function serveMeal() {
   }
   refreshHUD();
 }
+let hungerWrathDay = 0;
+function hungerWrath() { if (hungerWrathDay === day) return; hungerWrathDay = day; wrath = clamp(wrath + 25, 0, 100); shake = Math.max(shake, 0.3); rumble(0.4); }
 function endMeal() {
   const unfed = spirits.filter(s => !s.ate);
   meal.on = false;
   unfed.forEach(s => { if (['toTable', 'atTable'].includes(s.state)) s.state = 'idle'; s.setMoods([[6, { sad: 1 }]]); });
-  if (unfed.length) { wrath = clamp(wrath + Math.min(12, unfed.length * 3), 0, 100); whisper('They drummed at an empty table until dark.'); }
+  if (unfed.length) { hungerWrath(); whisper('They drummed at an empty table until dark.'); }
   refreshHUD();
 }
 function updateHome(dt) {
@@ -2234,8 +2236,10 @@ function update(dt) {
   if (playing) {
     let d = -0.22;
     let hungryN = 0, homelessN = 0;
-    for (const s of spirits) { if (s.hunger > 85) { d += 0.45; hungryN++; } if (!s.home && day >= 2) { d += 0.14; homelessN++; } }
-    if (hungryN || homelessN) d = Math.max(d, 0.08);
+    for (const s of spirits) { if (s.hunger > 85) hungryN++; if (!s.home && day >= 2) { d += 0.14; homelessN++; } }
+    if (homelessN) d = Math.max(d, 0.08);
+    // hungry wisplings: one quarter of the bar, once a day, and it holds there instead of creeping up (Drig's call)
+    if (hungryN) { hungerWrath(); d = Math.max(d, 0); }
     wrath = clamp(wrath + d * dt, 0, 100);
     if (hungryN && W.food === 0 && time - lastHungryWhisper > 40) { lastHungryWhisper = time; whisper('My children are hungry. Do you hear them?'); }
     if (homelessN && time - lastHomeWhisper > 55) { lastHomeWhisper = time; whisper('They shiver in the open. Build them a home.'); }
@@ -2947,7 +2951,7 @@ const mirrorIt = (() => {
   const d = M(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 20), mat(0xc8d8e8, { emissive: 0x6a8aa8, emissiveIntensity: 0.5 }), 0, 0.95, 0, g); d.rotation.x = Math.PI / 2 - 0.3; d.rotation.z = Math.PI / 2;
   const gl = glow(0xbfe4ff, 1.4, 0.7); gl.position.y = 0.95; g.add(gl);
   g.visible = false;
-  return addItem({ type: 'mirror', x: MIRROR_AT.x, z: MIRROR_AT.z, reach: 1.7, obj: g });
+  return addItem({ type: 'mirror', x: MIRROR_AT.x, z: MIRROR_AT.z, reach: 0.4, obj: g });
 })();
 function openStore() {
   Q.storeOpen = true; Q.key = false; storeDoor.want = 1; storeDoor.mark.visible = false; mirrorIt.obj.visible = !ART.mirror.got;
@@ -2970,7 +2974,9 @@ function makeHollow(x, z, sentinel) {
 }
 makeHollow(STORE.x - 3.6, STORE.z - 1.9, true); makeHollow(STORE.x - 3.6, STORE.z + 1.9, true);
 hollows.forEach(h => h.face = -Math.PI / 2);
-for (let i = 0; i < 4; i++) { const p = streetPoint(V(0, 0, 80), V(0, 0, 82), 30); makeHollow(p.x, p.z, false); }
+for (let i = 0; i < 4; i++) { let p; for (let k = 0; k < 200; k++) { p = V(lerp(-30, 30, R()), 0, lerp(64, 100, R())); if (onStreet(p.x, p.z) && townFree(p.x, p.z, 0.8) && Math.hypot(p.x - WELL.x, p.z - WELL.z) > 6 && Math.hypot(p.x - TOWN_GATE.x, p.z - TOWN_GATE.z) > 8) break; } const h = makeHollow(p.x, p.z, false); h.home = V(p.x, 0, p.z); }
+// a little one that lives down the well: small, peeking over the rim, and it never wanders
+{ const h = makeHollow(WELL.x, WELL.z, true); h.g.scale.setScalar(0.32); h.well = true; }
 const houseMeshes = houses.flatMap(h => [h.body, h.roof]);
 let staring = false, sawTown = false, sawStare = false;
 function updateTown(dt) {
@@ -2997,7 +3003,7 @@ function updateTown(dt) {
       const hp = h.head.getWorldPosition(V()), v = hp.clone().sub(cp), d = v.length(); if (d > 30) continue; v.divideScalar(d);
       if (Math.acos(clamp(v.dot(cf), -1, 1)) > 0.15) continue;
       ray.set(cp, v); ray.far = d; const blocked = ray.intersectObjects(houseMeshes, false).length > 0; ray.far = Infinity; if (blocked) continue;
-      staring = true; h.noticed = Math.min(1, h.noticed + dt * 2); suspicion += dt * (24 + 36 * (1 - d / 30));
+      staring = true; h.noticed = Math.min(1, h.noticed + dt * 2); suspicion += dt * (4 + 6 * (1 - d / 30));
     }
     if (!staring) suspicion = Math.max(0, suspicion - dt * 7);
     if (staring && !sawStare) { sawStare = true; whisper('Don’t look at them. The villagers can tell when you see things.'); }
