@@ -248,7 +248,7 @@ body.cine #cineHint{display:block}
 </div>
 
 <div class="hud" id="cross"></div>
-<div id="cineHint"><span id="cineHintText">Hold <b>Space</b> to speed up, 3 s to skip · <b>Esc</b> to pause</span><i id="skipBar"></i></div>
+<div id="cineHint"><span id="cineHintText">Tap <b>Space</b> to speed up or slow down, hold 3 s to skip · <b>Esc</b> to pause</span><i id="skipBar"></i></div>
 <div id="skipVeil">Skipping…</div>
 <div class="hud" id="lookHint">Click to look around · hold Alt to use the buttons · Esc pauses</div>
 <div class="hud" id="stick" hidden><i id="knob"></i></div>
@@ -2431,12 +2431,14 @@ const stick = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
 let drag = null;
 function showStick(on) { $('stick').hidden = !on; if (on) { $('stick').style.left = (stick.ox - 55) + 'px'; $('stick').style.top = (stick.oy - 55) + 'px'; $('knob').style.transform = 'translate(0px,0px)'; } }
 function grabMouse() { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-let freeingMouse = false, ffHeld = false;
+let freeingMouse = false, ffHeld = false, ffOn = false;
+// tap Space in a scene: fast on / fast off. Keep it held 3 s: skip the scene.
 addEventListener('keydown', e => {
   if (e.code !== 'Space' || !CINE_STATES.includes(state) || modalsOpen()) return;
-  e.preventDefault(); e.stopImmediatePropagation(); ffHeld = true; $('cineHint').classList.add('ff');
+  e.preventDefault(); e.stopImmediatePropagation(); ffHeld = true;
+  if (!e.repeat) { ffOn = !ffOn; $('cineHint').classList.toggle('ff', ffOn); }
 }, true);
-addEventListener('keyup', e => { if (e.code !== 'Space') return; if (ffHeld) { e.preventDefault(); ffHeld = false; } $('cineHint').classList.remove('ff'); }, true);
+addEventListener('keyup', e => { if (e.code !== 'Space') return; if (ffHeld) { e.preventDefault(); ffHeld = false; } }, true);
 addEventListener('blur', () => { ffHeld = false; });
 function freeMouse() { try { if (document.pointerLockElement) { freeingMouse = true; document.exitPointerLock(); } } catch (e) { } }
 document.addEventListener('pointerlockchange', () => {
@@ -4438,19 +4440,20 @@ refreshHUD();
 let last = performance.now(), lastReal = performance.now(), ffT = 0;
 const SCENE_CARDS = ['chapter', 'chapter3', 'chapter4', 'choice', 'end'];
 const skipDone = () => !CINE_STATES.includes(state) || SCENE_CARDS.some(id => $(id) && !$(id).hidden);
-function startSkip() { skipping = true; quietMsgs = true; ffHeld = false; $('cineHint').classList.remove('ff'); $('skipVeil').classList.add('on'); $('whisper').classList.remove('on'); }
+function startSkip() { skipping = true; quietMsgs = true; ffHeld = false; ffOn = false; $('cineHint').classList.remove('ff'); $('skipVeil').classList.add('on'); $('whisper').classList.remove('on'); }
 function endSkip() { skipping = false; quietMsgs = false; ffT = 0; $('skipVeil').classList.remove('on'); }
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
-  // hold Space in a scene: it plays 4x faster, and after 3 seconds it skips to the end
+  // Space toggles 4x speed in a scene; holding it 3 seconds skips to the end
   const inScene = CINE_STATES.includes(state);
+  if (!inScene && ffOn && state !== 'paused') { ffOn = false; $('cineHint').classList.remove('ff'); }
   if (ffHeld && inScene && !skipping) { ffT += Math.min(0.5, Math.max(0, (now - lastReal) / 1000)); if (ffT >= 3) startSkip(); } else if (!skipping) ffT = 0;
   lastReal = now; $('skipBar').style.width = (skipping ? 100 : clamp(ffT / 3, 0, 1) * 100) + '%';
   if (skipping) {
     for (let i = 0; i < 120 && !skipDone(); i++) update(0.05);
     if (skipDone()) endSkip();
-  } else { const steps = (window.__ts || 1) * (ffHeld && inScene ? 4 : 1); for (let i = 0; i < steps; i++) update(dt); }
+  } else { const steps = (window.__ts || 1) * (ffOn && inScene ? 4 : 1); for (let i = 0; i < steps; i++) update(dt); }
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
