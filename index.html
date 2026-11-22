@@ -240,7 +240,7 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
 </div>
 
 <div class="hud" id="cross"></div>
-<div class="hud" id="lookHint">Click to look around with the mouse · hold Alt to use the buttons · Esc pauses</div>
+<div class="hud" id="lookHint">Click to look around · hold Alt to use the buttons · Esc pauses</div>
 <div class="hud" id="stick" hidden><i id="knob"></i></div>
 <div class="hud panel" id="prompt"></div>
 <div class="hud" id="toast"></div>
@@ -1209,41 +1209,69 @@ let ladyVRM = null, playerVRM = null;
 // The mask hides her face, so her feelings show on it: brows inked over the closed eyes, eyes that glow red when
 // she is angry, open dark eye holes when startled, tears, blush. Painted on small decals that sit on the mask.
 const LADY_FACES = ['calm', 'angry', 'sad', 'surprised', 'happy', 'shy'];
-const ladyFace = { cur: 'calm', want: 'calm', a: 0, decals: [], tex: {}, hold: null, holdT: 0 };
+const ladyFace = { cur: 'calm', want: 'calm', a: 0, decals: [], tex: {}, mtex: {}, hold: null, holdT: 0 };
 function paintLadyFace(name) {
   const c = document.createElement('canvas'); c.width = 128; c.height = 150; const x = c.getContext('2d');
   x.lineCap = 'round'; x.lineJoin = 'round';
   const ink = '#2a2238', brow = (a, b, cx, cy, w) => { x.strokeStyle = ink; x.lineWidth = w; x.beginPath(); x.moveTo(a[0], a[1]); x.quadraticCurveTo(cx, cy, b[0], b[1]); x.stroke(); };
   const blush = (r, a) => { const g = x.createRadialGradient(86, 114, 2, 86, 114, r); g.addColorStop(0, `rgba(255,110,150,${a})`); g.addColorStop(1, 'rgba(255,110,150,0)'); x.fillStyle = g; x.beginPath(); x.ellipse(86, 114, r, r * 0.55, 0, 0, 7); x.fill(); };
   const drop = (cx, cy, s, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(cx, cy - s * 1.6); x.quadraticCurveTo(cx + s, cy - s * 0.2, cx + s, cy + s * 0.3); x.arc(cx, cy + s * 0.3, s, 0, Math.PI); x.quadraticCurveTo(cx - s, cy - s * 0.2, cx, cy - s * 1.6); x.fill(); };
-  if (name === 'angry') {
-    brow([10, 36], [116, 6], 60, 14, 14);
-    x.shadowColor = '#ff2040'; x.shadowBlur = 16; x.fillStyle = '#ff3a4c';
-    for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(16, 64); x.quadraticCurveTo(62, 30, 114, 40); x.quadraticCurveTo(66, 72, 16, 64); x.fill(); }
-    x.shadowBlur = 0; x.fillStyle = '#ffe0e6'; x.beginPath(); x.ellipse(66, 50, 6, 3, -0.25, 0, 7); x.fill();
-  } else if (name === 'sad') {
-    brow([10, 8], [114, 32], 64, 8, 11);
-    x.globalAlpha = 0.95; drop(82, 92, 12, '#6fb2ff'); x.globalAlpha = 0.6; drop(70, 132, 8, '#6fb2ff'); x.globalAlpha = 1;
-  } else if (name === 'surprised') {
-    brow([18, 12], [108, 8], 62, -10, 9);
-    x.fillStyle = '#140c1e'; x.beginPath(); x.ellipse(62, 54, 26, 28, 0, 0, 7); x.fill();
-    x.shadowColor = '#ffb0d0'; x.shadowBlur = 12; x.fillStyle = '#ffe6f0'; x.beginPath(); x.arc(66, 52, 8, 0, 7); x.fill(); x.shadowBlur = 0;
+  // the canvas centre (64, 78) sits on the eye; small x is the side toward her nose. Same ink line style as the mouths.
+  const line = (pts, w = 9) => { x.strokeStyle = ink; x.lineWidth = w; x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i += 2) x.quadraticCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]); x.stroke(); };
+  const shine = (cx, cy, r) => { x.fillStyle = '#ffffff'; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); };
+  if (name === 'calm') {
+    // quiet, half-lidded open eyes under level brows
+    line([[30, 44], [64, 38], [98, 44]], 7);
+    x.fillStyle = ink; x.beginPath(); x.moveTo(26, 80); x.quadraticCurveTo(64, 60, 102, 78); x.quadraticCurveTo(64, 96, 26, 80); x.fill();
+    x.fillStyle = '#b8203a'; x.beginPath(); x.ellipse(64, 80, 9, 9, 0, 0, 7); x.fill(); shine(70, 75, 3.5);
+    line([[24, 76], [64, 56], [104, 74]], 6);
   } else if (name === 'happy') {
-    brow([24, 22], [104, 20], 64, 4, 8);
-    blush(40, 0.85);
-    x.fillStyle = '#ffd6ec'; x.shadowColor = '#ff9ed1'; x.shadowBlur = 8; x.beginPath(); const sx = 112, sy = 30;
-    for (let i = 0; i < 8; i++) { const r = i % 2 ? 4 : 14, a = i * Math.PI / 4; x.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); } x.fill(); x.shadowBlur = 0;
-  } else if (name === 'calm') {
-    // neutral: level brows and quiet, half-open eyes
-    brow([20, 20], [108, 20], 64, 18, 7);
-    x.fillStyle = '#2a2238'; x.beginPath(); x.moveTo(24, 58); x.quadraticCurveTo(64, 44, 104, 58); x.quadraticCurveTo(64, 66, 24, 58); x.fill();
-    x.fillStyle = '#b8203a'; x.beginPath(); x.ellipse(66, 56, 7, 5, 0, 0, 7); x.fill();
+    // eyes squeezed into smiling arcs, brows lifted, a rosy blush
+    line([[32, 40], [64, 26], [96, 38]], 7);
+    blush(34, 0.75);
+    line([[26, 90], [64, 50], [102, 90]], 11);
+    x.fillStyle = '#ffd6ec'; x.shadowColor = '#ff9ed1'; x.shadowBlur = 8; x.beginPath(); const sx = 110, sy = 46;
+    for (let i = 0; i < 8; i++) { const r = i % 2 ? 3 : 10, a = i * Math.PI / 4; x.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); } x.fill(); x.shadowBlur = 0;
+  } else if (name === 'sad') {
+    // brows pinched up in the middle, heavy eyes drooping at the outside, tears
+    line([[18, 30], [56, 34], [104, 52]], 8);
+    x.fillStyle = ink; x.beginPath(); x.moveTo(26, 74); x.quadraticCurveTo(66, 70, 102, 92); x.quadraticCurveTo(60, 100, 26, 74); x.fill();
+    x.fillStyle = '#3a4a8a'; x.beginPath(); x.ellipse(60, 84, 8, 7, 0, 0, 7); x.fill(); shine(64, 81, 3);
+    x.globalAlpha = 0.95; drop(92, 112, 10, '#6fb2ff'); x.globalAlpha = 0.6; drop(84, 140, 7, '#6fb2ff'); x.globalAlpha = 1;
+  } else if (name === 'angry') {
+    // brows slammed down toward the nose, narrowed eyes burning red
+    line([[10, 58], [60, 44], [116, 24]], 12);
+    x.shadowColor = '#ff2040'; x.shadowBlur = 16; x.fillStyle = '#ff3a4c';
+    for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(22, 82); x.quadraticCurveTo(64, 58, 108, 66); x.quadraticCurveTo(66, 98, 22, 82); x.fill(); }
+    x.shadowBlur = 0; x.fillStyle = '#ffe0e6'; x.beginPath(); x.ellipse(64, 78, 6, 4, -0.2, 0, 7); x.fill();
+    line([[20, 80], [64, 56], [110, 64]], 6);
+  } else if (name === 'surprised') {
+    // wide round eyes, brows flown up high
+    line([[28, 30], [64, 12], [100, 28]], 7);
+    x.fillStyle = ink; x.beginPath(); x.arc(64, 80, 24, 0, 7); x.fill();
+    x.fillStyle = '#b8203a'; x.beginPath(); x.arc(64, 82, 11, 0, 7); x.fill(); shine(72, 72, 6); shine(56, 92, 2.5);
   } else if (name === 'shy') {
-    brow([14, 18], [112, 26], 64, 10, 8);
-    blush(44, 0.95); x.strokeStyle = '#d9506e'; x.lineWidth = 6;
-    for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(66 + i * 13, 122); x.lineTo(76 + i * 13, 104); x.stroke(); }
-    drop(114, 24, 9, '#a8d4ff');
+    // eyes squeezed shut like > <, a big blush and a sweat drop
+    line([[22, 38], [60, 40], [104, 30]], 7);
+    blush(40, 0.95);
+    x.strokeStyle = ink; x.lineWidth = 9; x.beginPath(); x.moveTo(96, 62); x.lineTo(38, 80); x.lineTo(96, 98); x.stroke();
+    x.strokeStyle = '#d9506e'; x.lineWidth = 5;
+    for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(66 + i * 13, 128); x.lineTo(74 + i * 13, 112); x.stroke(); }
+    drop(116, 40, 8, '#a8d4ff');
   }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+// a small mouth for each face, painted below the mask's nose
+function paintLadyMouth(name) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 80; const x = c.getContext('2d');
+  x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#2a2238'; x.fillStyle = '#2a2238'; x.lineWidth = 9;
+  const path = pts => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i += 2) x.quadraticCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]); x.stroke(); };
+  if (name === 'calm') path([[40, 42], [64, 46], [88, 42]]);
+  else if (name === 'happy') { path([[22, 32], [42, 58], [64, 34]]); path([[64, 34], [86, 58], [106, 32]]); }
+  else if (name === 'sad') path([[34, 56], [64, 26], [94, 56]]);
+  else if (name === 'angry') { x.lineWidth = 10; path([[26, 52], [44, 30], [64, 46]]); path([[64, 46], [84, 30], [102, 52]]); }
+  else if (name === 'surprised') { x.beginPath(); x.ellipse(64, 42, 14, 19, 0, 0, 7); x.fill(); }
+  else if (name === 'shy') { x.lineWidth = 7; path([[34, 44], [44, 34], [54, 44]]); path([[54, 44], [64, 54], [74, 44]]); path([[74, 44], [84, 34], [94, 44]]); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 function attachLadyFace(inst) {
@@ -1251,7 +1279,14 @@ function attachLadyFace(inst) {
   const head = inst.bones.head && inst.bones.head.node; if (!head) return;
   let isOurs = false; inst.root.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (/mask/i.test(m.name || '')) isOurs = true; }); });
   if (!isOurs) return; // a different lady model: no painted faces
-  for (const n of LADY_FACES) if (!ladyFace.tex[n]) ladyFace.tex[n] = paintLadyFace(n);
+  for (const n of LADY_FACES) { if (!ladyFace.tex[n]) ladyFace.tex[n] = paintLadyFace(n); if (!ladyFace.mtex[n]) ladyFace.mtex[n] = paintLadyMouth(n); }
+  // the mask's own painted eyes and mouth (a fixed smile) would fight the changing faces, so hide that ink
+  let mouthX = 0, mouthY = null;
+  inst.root.traverse(o => { if (!o.isMesh) return; const ms = Array.isArray(o.material) ? o.material : [o.material]; if (!ms.some(m => /^maskInk$/i.test(m.name || ''))) return;
+    const pa = o.geometry.attributes.position; let lo = 1e9, n = 0, sx = 0;
+    for (let i = 0; i < pa.count; i++) { const px = pa.getX(i), py = pa.getY(i); if (Math.abs(px) < 0.03 && py < 1.5 && py > 1.4) { if (py < lo) lo = py; sx += px; n++; } }
+    if (n) { mouthY = lo + 0.006; mouthX = sx / n; }
+    ms.forEach(m => { if (/^maskInk$/i.test(m.name || '')) m.visible = false; }); });
   lady.g.updateMatrixWorld(true);
   // find the mask's surface where each eye is (in the model it sits around x ±0.036, y 1.51), using the real skinned
   // vertices so the decal lands exactly on the drawn mask whatever the bone conventions are
@@ -1263,18 +1298,20 @@ function attachLadyFace(inst) {
     // follow the bone this vertex is actually skinned to
     const [m, i] = best; if (!skinBone && m.isSkinnedMesh && m.geometry.attributes.skinIndex) { const si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight; let bk = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; bk = si.getComponent(i, k); } } skinBone = m.skeleton.bones[bk]; }
     return world(m, i); };
-  for (const s of [1, -1]) {
-    const ex = s * 0.036, p0 = surf(ex, 1.51), px = surf(ex + s * 0.012, 1.51), py = surf(ex, 1.522);
+  const spots = [[1, 0.036, 1.51, 0.084, 0.098, 'eye'], [-1, -0.036, 1.51, 0.084, 0.098, 'eye']];
+  if (mouthY != null) spots.push([1, mouthX, mouthY, 0.062, 0.039, 'mouth']);
+  for (const [s, ex, ey, dw, dh, part] of spots) {
+    const p0 = surf(ex, ey), px = surf(ex + s * 0.012, ey), py = surf(ex, ey + 0.012);
     if (!p0 || !px || !py) continue;
     const ax = px.clone().sub(p0), ay = py.clone().sub(p0), unit = inst.root.getWorldScale(V()).x;
     ax.normalize(); ay.normalize(); const nz = ax.clone().cross(ay).normalize(); if (s < 0) nz.negate(); const ay2 = nz.clone().cross(ax.clone().multiplyScalar(s)).normalize();
     const basis = new THREE.Matrix4().makeBasis(ax.clone().multiplyScalar(s), ay2, nz);
     const worldM = new THREE.Matrix4().compose(p0.clone().addScaledVector(nz, 0.006 * unit), new THREE.Quaternion().setFromRotationMatrix(basis), V(s * unit, unit, unit));
     const m = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4 });
-    const d = new THREE.Mesh(new THREE.PlaneGeometry(0.084, 0.098), m);
-    const eg = glow(0xff2a40, 0.05, 0); eg.position.set(0.004, 0.006, 0.004); d.add(eg); d.userData.glow = eg;
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(dw, dh), m); d.userData.part = part;
+    if (part === 'eye') { const eg = glow(0xff2a40, 0.05, 0); eg.position.set(0.004, 0.006, 0.004); d.add(eg); d.userData.glow = eg; }
     const bone = skinBone || head; bone.add(d); bone.matrixWorld.clone().invert().multiply(worldM).decompose(d.position, d.quaternion, d.scale);
-    d.renderOrder = 9999; d.visible = false; m.map = ladyFace.tex[ladyFace.cur] || ladyFace.tex.calm;
+    d.renderOrder = 9999; d.visible = false; const tx = part === 'mouth' ? ladyFace.mtex : ladyFace.tex; m.map = tx[ladyFace.cur] || tx.calm;
     ladyFace.decals.push(d);
   }
 }
@@ -1282,10 +1319,10 @@ function setLadyFace(name, hold = 0) { if (hold > 0) { ladyFace.hold = name; lad
 function updateLadyFace(dt) {
   if (ladyFace.holdT > 0) ladyFace.holdT -= dt;
   const want = ladyFace.holdT > 0 ? ladyFace.hold : ladyFace.want;
-  if (want !== ladyFace.cur) { ladyFace.a -= dt * 7; if (ladyFace.a <= 0) { ladyFace.a = 0; ladyFace.cur = want; ladyFace.decals.forEach(d => { d.material.map = ladyFace.tex[want]; d.material.needsUpdate = true; }); } }
+  if (want !== ladyFace.cur) { ladyFace.a -= dt * 7; if (ladyFace.a <= 0) { ladyFace.a = 0; ladyFace.cur = want; ladyFace.decals.forEach(d => { d.material.map = (d.userData.part === 'mouth' ? ladyFace.mtex : ladyFace.tex)[want]; d.material.needsUpdate = true; }); } }
   else ladyFace.a = Math.min(1, ladyFace.a + dt * 5);
   const show = ladyFace.a * lady.opacity;
-  ladyFace.decals.forEach(d => { d.material.opacity = show; d.visible = show > 0.01; d.userData.glow.material.opacity = ladyFace.cur === 'angry' ? show * (0.75 + Math.sin(time * 9) * 0.2) : 0; });
+  ladyFace.decals.forEach(d => { d.material.opacity = show; d.visible = show > 0.01; if (d.userData.glow) d.userData.glow.material.opacity = ladyFace.cur === 'angry' ? show * (0.75 + Math.sin(time * 9) * 0.2) : 0; });
 }
 const FACE_POSE = { calm: [0, 0], angry: [0.14, 0], sad: [0.22, 0.06], surprised: [-0.12, 0], happy: [-0.04, 0.14], shy: [0.1, -0.16] };
 function applySingle(role) {
@@ -2304,9 +2341,14 @@ addEventListener('keydown', e => {
   altFree = true; altHadLock = !!document.pointerLockElement; freeMouse(); $('lookHint').classList.add('off');
 }, true);
 addEventListener('keyup', e => {
-  if (e.key !== 'Alt' || !altFree) return; e.preventDefault(); altFree = false;
-  if (altHadLock && state === 'play' && !modalsOpen()) grabMouse();
+  if (e.key !== 'Alt' || !altFree) return; e.preventDefault(); altFree = false; autoGrab();
 }, true);
+// first person by default: whenever you're playing with no menu open, the game holds the mouse.
+// Browsers only allow that right after a click or key press, so try after each one (and after a menu closes).
+const fineMouse = !!(window.matchMedia && matchMedia('(pointer: fine)').matches);
+function autoGrab() { if (fineMouse && state === 'play' && !altFree && !document.pointerLockElement && !modalsOpen()) grabMouse(); }
+addEventListener('click', () => setTimeout(autoGrab, 30));
+addEventListener('keydown', e => { if (e.key !== 'Escape' && e.key !== 'Alt') setTimeout(autoGrab, 30); });
 addEventListener('blur', () => { altFree = false; });
 addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('pauseMenu').hidden) { if (!$('slotBox').hidden && !pauseFromTitle) showPauseMain(); else closePause(); return; }
@@ -2376,6 +2418,8 @@ canvas.addEventListener('pointerdown', e => {
   audioOn();
   if (state === 'memory') { if (document.pointerLockElement !== canvas) drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, mouse: e.pointerType === 'mouse' }; return; }
   if (state !== 'play') return;
+  // a click while the mouse is loose just takes it back for looking (unless you're holding Alt to click things)
+  if (e.pointerType === 'mouse' && !document.pointerLockElement && !altFree && fineMouse) { e.preventDefault(); grabMouse(); return; }
   if (e.button === 2) { tossSpirit(); return; }
   if (document.pointerLockElement === canvas) { act(); return; }
   if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.45) { Object.assign(stick, { active: true, id: e.pointerId, ox: e.clientX, oy: e.clientY, dx: 0, dy: 0 }); showStick(true); return; }
@@ -4038,7 +4082,7 @@ $('startBtn').onclick = () => {
 // ---------------------------------------------------------------- pause menu and save slots (three, kept in this browser / app)
 const SAVE_KEY = n => 'ash-save-' + n, SAVE_SLOTS = 3;
 let pauseFromTitle = false;
-const modalsOpen = () => ['shrineModal', 'tradeModal', 'charModal', 'lookModal', 'title', 'chapter', 'chapter3', 'chapter4', 'choice', 'end', 'pauseMenu'].some(id => $(id) && !$(id).hidden);
+const modalsOpen = () => ['questPanel', 'shrineModal', 'tradeModal', 'charModal', 'lookModal', 'title', 'chapter', 'chapter3', 'chapter4', 'choice', 'end', 'pauseMenu'].some(id => $(id) && !$(id).hidden);
 const canPause = () => state === 'play' && !modalsOpen();
 function openPause() {
   if (!canPause()) return;
@@ -4276,6 +4320,6 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
+window.__shrine = { openShrine, snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
 })();
 </script>
