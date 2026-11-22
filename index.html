@@ -130,6 +130,13 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
 .screen ul{margin:0 0 18px;padding-left:20px;line-height:1.6;font-size:13.5px}
 .screen ul li::marker{color:var(--sakura)}
 .screen .row{display:flex;gap:8px;flex-wrap:wrap}
+#slotList{display:grid;gap:8px;margin:4px 0 14px}
+.slot{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:2px solid #e6dcef;background:#fff;border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit;cursor:pointer}
+.slot:hover:not(:disabled){border-color:var(--sakura)}
+.slot:disabled{opacity:.5;cursor:default}
+.slot b{font-size:14px}
+.slot span{font-size:12.5px;color:var(--dusk)}
+.slot.warn{border-color:#d9483b;background:#fff4f2}
 .who{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:-4px 0 14px;font-size:14px;font-weight:700;color:var(--dusk)}
 .who span{margin-right:4px}
 .pick{font:inherit;font-size:14px;border:2px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;cursor:pointer;color:inherit}
@@ -233,7 +240,7 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
 </div>
 
 <div class="hud" id="cross"></div>
-<div class="hud" id="lookHint">Click to look around with the mouse · Esc frees it · or drag to look</div>
+<div class="hud" id="lookHint">Click to look around with the mouse · Esc pauses · or drag to look</div>
 <div class="hud" id="stick" hidden><i id="knob"></i></div>
 <div class="hud panel" id="prompt"></div>
 <div class="hud" id="toast"></div>
@@ -318,7 +325,7 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
     <h1>Ash Mountain Shrine</h1>
     <div class="sub">The village cast you out for seeing spirits. Up here, the old shrine sees you back. She was their offering once. Now she wants her children back.</div>
     <ul>
-      <li>You see through your own eyes. Walk with <b>WASD</b>, hold <b>Shift</b> to run, jump with <b>Space</b>, look with the mouse (click to grab it, Esc to let go) or turn with the arrow keys. On a phone, drag the left side to walk (push all the way to run), the right side to look, and tap Jump to hop.</li>
+      <li>You see through your own eyes. Walk with <b>WASD</b>, hold <b>Shift</b> to run, jump with <b>Space</b>, look with the mouse (click to grab it, Esc to pause, save or load) or turn with the arrow keys. On a phone, drag the left side to walk (push all the way to run), the right side to look, and tap Jump to hop.</li>
       <li>Look at something and click or press <b>E</b> to chop, pick berries, cook or build. Tap far things to walk to them.</li>
       <li>Sell wood at the peddler's stump for coins. Cook food into treats at the campfire.</li>
       <li>Offer coins and treats at the shrine. Enough of both wakes a wispling.</li>
@@ -330,10 +337,18 @@ body.cine .hud:not(#whisper):not(#toast){opacity:0!important;pointer-events:none
       <li>Choose to play as a woman or a man below, and change your eyes, mouth, hair and clothes. You can change them later from the ☺ menu.</li>
     </ul>
     <div class="who"><span>Play as</span><button class="pick" id="pickF" data-sex="f">Woman</button><button class="pick" id="pickM" data-sex="m">Man</button><button class="pick alt" id="lookBtn">Change your look…</button></div>
-    <div class="row"><button class="btn" id="startBtn">Climb the mountain</button><button class="btn alt" id="charBtn2">Use my VRoid characters</button></div>
+    <div class="row"><button class="btn" id="startBtn">Climb the mountain</button><button class="btn alt" id="charBtn2">Use my VRoid characters</button><button class="btn alt" id="titleLoadBtn">Load game</button></div>
   </div>
 </div>
 
+<div class="screen" id="pauseMenu" hidden>
+  <div class="card">
+    <h1 id="pauseTitle">Paused</h1>
+    <div class="sub" id="pauseSub">The mountain waits for you. Nothing moves until you come back.</div>
+    <div class="row" id="pauseRow"><button class="btn" id="resumeBtn">Resume</button><button class="btn alt" id="saveMenuBtn">Save game</button><button class="btn alt" id="loadMenuBtn">Load game</button><button class="btn alt" id="pauseHelpBtn">How to play</button></div>
+    <div id="slotBox" hidden><div id="slotList"></div><div class="row"><button class="btn alt" id="slotBack">Back</button></div></div>
+  </div>
+</div>
 <div class="screen" id="chapter4" hidden>
   <div class="card">
     <h1>Chapter four: her memory</h1>
@@ -2119,8 +2134,9 @@ function giggle(s, big = 1) {
 
 // ---------------------------------------------------------------- HUD
 const ui = { toastT: 0, whisperT: 0 };
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); ui.toastT = 3.2; }
-function whisper(msg) { const w = $('whisper'); w.textContent = msg; w.classList.add('on'); ui.whisperT = Math.max(6, msg.length / 17); tone(196, 1.4, 'sine', 0.035); tone(207.6, 1.4, 'sine', 0.03); }
+let quietMsgs = false;
+function toast(msg) { if (quietMsgs) return; const t = $('toast'); t.textContent = msg; t.classList.add('on'); ui.toastT = 3.2; }
+function whisper(msg) { if (quietMsgs) return; const w = $('whisper'); w.textContent = msg; w.classList.add('on'); ui.whisperT = Math.max(6, msg.length / 17); tone(196, 1.4, 'sine', 0.035); tone(207.6, 1.4, 'sine', 0.03); }
 function phaseName(t) { return t < 0.2 ? 'Night' : t < 0.3 ? 'Dawn' : t < 0.68 ? 'Day' : t < 0.8 ? 'Dusk' : 'Night'; }
 function refreshHUD() {
   $('r-wood').textContent = W.wood; $('r-food').textContent = W.food; $('r-coins').textContent = W.coins; $('r-treats').textContent = W.treats;
@@ -2282,10 +2298,12 @@ M(new THREE.CylinderGeometry(0.03, 0.035, 0.6, 8), mat(0x8a5a44), 0, 0.15, 0, vi
 M(new THREE.BoxGeometry(0.05, 0.16, 0.2), mat(0xc9cbd6), 0, 0.42, -0.07, viewAxe).castShadow = false;
 viewAxe.visible = false;
 addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('pauseMenu').hidden) { if (!$('slotBox').hidden && !pauseFromTitle) showPauseMain(); else closePause(); return; }
   if (e.key === 'Escape' && !$('shrineModal').hidden) { closeShrine(); return; }
   if (e.key === 'Escape' && !$('tradeModal').hidden) { closeTrade(); return; }
   if (e.key === 'Escape' && !$('charModal').hidden) { $('charModal').hidden = true; return; }
   if (e.key === 'Escape' && !$('questPanel').hidden) { toggleQuests(false); return; }
+  if (e.key === 'Escape' && canPause()) { openPause(); return; }
   if (!$('charModal').hidden) return;
   if (state !== 'play' || !$('shrineModal').hidden || !$('tradeModal').hidden) return;
   const k = e.key.toLowerCase();
@@ -2336,8 +2354,12 @@ const stick = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
 let drag = null;
 function showStick(on) { $('stick').hidden = !on; if (on) { $('stick').style.left = (stick.ox - 55) + 'px'; $('stick').style.top = (stick.oy - 55) + 'px'; $('knob').style.transform = 'translate(0px,0px)'; } }
 function grabMouse() { try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } }
-function freeMouse() { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) { } }
-document.addEventListener('pointerlockchange', () => { $('lookHint').classList.toggle('off', !!document.pointerLockElement); });
+let freeingMouse = false;
+function freeMouse() { try { if (document.pointerLockElement) { freeingMouse = true; document.exitPointerLock(); } } catch (e) { } }
+document.addEventListener('pointerlockchange', () => {
+  $('lookHint').classList.toggle('off', !!document.pointerLockElement);
+  if (!document.pointerLockElement) { if (!freeingMouse && canPause()) openPause(); freeingMouse = false; }
+});
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   audioOn();
@@ -4002,6 +4024,108 @@ $('startBtn').onclick = () => {
   setTimeout(() => whisper('You were cast out too, little one. Stay. Feed my children.'), 900);
   setTimeout(() => toast('Start at the shrine: tap it and offer coins or a treat.'), 4200);
 };
+// ---------------------------------------------------------------- pause menu and save slots (three, kept in this browser / app)
+const SAVE_KEY = n => 'ash-save-' + n, SAVE_SLOTS = 3;
+let pauseFromTitle = false;
+const modalsOpen = () => ['shrineModal', 'tradeModal', 'charModal', 'lookModal', 'title', 'chapter', 'chapter3', 'chapter4', 'choice', 'end', 'pauseMenu'].some(id => $(id) && !$(id).hidden);
+const canPause = () => state === 'play' && !modalsOpen();
+function openPause() {
+  if (!canPause()) return;
+  state = 'paused'; keys.clear(); P.target = null; freeMouse(); pauseFromTitle = false;
+  $('pauseMenu').hidden = false; showPauseMain(); setTimeout(() => $('resumeBtn').focus(), 30);
+}
+function closePause() {
+  $('pauseMenu').hidden = true;
+  if (pauseFromTitle) { pauseFromTitle = false; $('title').hidden = false; return; }
+  state = 'play'; canvas.focus();
+}
+function showPauseMain() { $('pauseTitle').textContent = 'Paused'; $('pauseSub').textContent = 'The mountain waits for you. Nothing moves until you come back.'; $('pauseRow').hidden = false; $('slotBox').hidden = true; }
+function readSlot(n) { try { const t = localStorage.getItem(SAVE_KEY(n)); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+function slotLabel(d) {
+  if (!d) return 'Empty';
+  const ch = d.level >= 4 ? 'Chapter 4' : d.level >= 3 ? 'Chapter 3' : d.level >= 2 ? 'Chapter 2' : 'Chapter 1';
+  let when = ''; try { when = new Date(d.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { }
+  return `${ch} · Day ${d.day} · ${d.spirits.length} wispling${d.spirits.length === 1 ? '' : 's'}${when ? ' · saved ' + when : ''}`;
+}
+function showSlots(mode) {
+  $('pauseRow').hidden = true; $('slotBox').hidden = false;
+  $('pauseTitle').textContent = mode === 'save' ? 'Save game' : 'Load game';
+  $('pauseSub').textContent = mode === 'save' ? 'Pick a slot. Saves stay on this computer, in this browser or app.' : 'Pick a save to go back to. Anything you haven’t saved will be lost.';
+  const list = $('slotList'); list.innerHTML = '';
+  for (let n = 1; n <= SAVE_SLOTS; n++) {
+    const d = readSlot(n), b = document.createElement('button'); b.className = 'slot'; b.id = 'slot' + n;
+    b.innerHTML = `<b>Slot ${n}</b><span>${slotLabel(d)}</span>`;
+    if (mode === 'load' && !d) b.disabled = true;
+    b.onclick = () => {
+      if (mode === 'save') {
+        if (d && !b.classList.contains('warn')) { b.classList.add('warn'); b.querySelector('span').textContent = 'Click again to save over this slot.'; return; }
+        if (saveGame(n)) { toast(`Saved to slot ${n}.`); chime(); showSlots('save'); } else b.querySelector('span').textContent = 'Couldn’t save here. This browser may be blocking storage.';
+      } else loadGame(n);
+    };
+    list.append(b);
+  }
+  setTimeout(() => { const f = list.querySelector('button:not(:disabled)'); if (f) f.focus(); }, 30);
+}
+$('resumeBtn').onclick = closePause;
+$('saveMenuBtn').onclick = () => showSlots('save');
+$('loadMenuBtn').onclick = () => showSlots('load');
+$('slotBack').onclick = () => { if (pauseFromTitle) closePause(); else showPauseMain(); };
+$('pauseHelpBtn').onclick = () => { $('pauseMenu').hidden = true; $('title').hidden = false; $('startBtn').textContent = 'Back to the mountain'; };
+$('titleLoadBtn').onclick = () => { $('title').hidden = true; pauseFromTitle = true; $('pauseMenu').hidden = false; showSlots('load'); };
+
+function snapshot() {
+  const room = r => ({ p: r.progress, d: !!r.done });
+  return {
+    v: 1, savedAt: Date.now(), day, dayT, wrath, tributeToday, offeredEver, wonOnce, level, thanked, shrineStage, townBanDay, tossCount, treatsCooked, mealsServed, shatakuStage, memoryDone,
+    W: Object.assign({}, W), Q: Object.assign({}, Q), art: Object.fromEntries(Object.entries(ART).map(([k, a]) => [k, a.got])),
+    axe: P.axe, suppers: L.suppers || 0,
+    cabin: { p: cabin.progress, built: !!cabin.built },
+    rooms: { kitchen: room(kitchen), table: room(table), bedP: room(bedP), bedL: room(bedL), wisA: room(wisA), wisB: room(wisB) },
+    sites: sites.map(x => ({ slot: x.slot, p: x.progress })),
+    spirits: spirits.map(x => ({ kind: x.kind.name, job: x.job, hunger: Math.round(x.hunger) })),
+  };
+}
+function saveGame(n) { try { localStorage.setItem(SAVE_KEY(n), JSON.stringify(snapshot())); return true; } catch (e) { return false; } }
+// loading starts from a fresh mountain: the page reloads, then the save is laid over the new game
+function loadGame(n) { const d = readSlot(n); if (!d) return; try { sessionStorage.setItem('ash-load', String(n)); } catch (e) { } $('fade').style.background = '#0d0a18'; $('fade').style.opacity = 1; setTimeout(() => location.reload(), 500); }
+function applySave(d) {
+  quietMsgs = true;
+  try {
+    day = d.day; dayT = d.dayT; wrath = d.wrath; tributeToday = d.tributeToday; offeredEver = d.offeredEver; wonOnce = !!d.wonOnce; thanked = !!d.thanked;
+    townBanDay = d.townBanDay || 0; tossCount = d.tossCount || 0; treatsCooked = d.treatsCooked || 0; mealsServed = d.mealsServed || 0; memoryDone = !!d.memoryDone;
+    Object.assign(W, d.W); Object.assign(Q, d.Q); for (const k in d.art) if (ART[k]) ART[k].got = d.art[k];
+    level = d.level;
+    // wisplings: the same kinds come in the same order, so wake the same number
+    while (spirits.length < d.spirits.length) spawnSpirit();
+    spirits.forEach((x, i) => { const o = d.spirits[i]; if (!o) return; x.job = o.job; x.hunger = o.hunger; x.state = 'idle'; x.spawnT = 1; x.pos.set((R() - 0.5) * 8, 0, -4 + (R() - 0.5) * 6); });
+    // huts and the house
+    for (const o of d.sites) { let x = sites.find(q => q.slot === o.slot); if (!x) x = makeHutSite(o.slot, 0); x.progress = o.p; x.done = x.progress >= x.need; refreshSite(x); }
+    if (d.cabin.built) { cabin.progress = cabin.need; cabin.built = true; } else cabin.progress = d.cabin.p; updateCabinLook();
+    for (const [k, r] of [['kitchen', kitchen], ['table', table], ['bedP', bedP], ['bedL', bedL], ['wisA', wisA], ['wisB', wisB]]) { const o = d.rooms[k]; if (!o) continue; r.progress = o.p; r.done = o.d; refreshRoomSite(r); }
+    for (const r of [kitchen, table, bedP, bedL, wisA, wisB]) if (r.done) roomDone(r);
+    meal.on = false;
+    assignHomes(); if (wispRoomsDone() && !yokai.length) moveInYokai();
+    // chapters
+    P.axe = d.axe || 1; if (P.axe > 1) tintViewAxe();
+    if (level >= 2) { townSign.obj.visible = true; L.mode = level >= 3 ? 'near' : 'follow'; L.bow = 0; L.giving = false; }
+    shrineStage = d.shrineStage || 0; applyShrineStage();
+    if (Q.storeOpen) { storeDoor.want = 1; storeDoor.mark.visible = false; }
+    shatakuStage = d.shatakuStage || 0; applyShataku();
+    L.suppers = d.suppers || 0;
+    if (level >= 4) barrier.g.visible = true;
+    P.where = 'mountain'; P.pos.set(3, 0, 4); P.holding = null;
+  } finally { quietMsgs = false; }
+  refreshHUD();
+}
+// after a reload for a load: lay the save over the fresh game and go straight in
+(() => {
+  let n = null; try { n = sessionStorage.getItem('ash-load'); sessionStorage.removeItem('ash-load'); } catch (e) { }
+  const d = n && readSlot(+n); if (!d) return;
+  applySave(d); started = true; $('title').hidden = true; state = 'play'; $('startBtn').textContent = 'Back to the mountain';
+  camPos.copy(player.g.position).add(V(0, 22, 24));
+  setTimeout(() => toast(`Loaded slot ${n}. Day ${d.day}.`), 600);
+  const wake = () => { audioOn(); removeEventListener('pointerdown', wake); removeEventListener('keydown', wake); }; addEventListener('pointerdown', wake); addEventListener('keydown', wake);
+})();
 $('helpBtn').onclick = () => { if (state !== 'play') return; freeMouse(); $('title').hidden = false; $('startBtn').textContent = 'Back to the mountain'; state = 'paused'; keys.clear(); };
 $('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); audioOn(); jump(); });
 $('tossBtn').addEventListener('pointerdown', e => { e.preventDefault(); audioOn(); tossSpirit(); });
@@ -4134,13 +4258,13 @@ refreshHUD();
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
   const steps = window.__ts || 1; for (let i = 0; i < steps; i++) update(dt);
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
+window.__shrine = { snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
 })();
 </script>
