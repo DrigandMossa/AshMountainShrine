@@ -380,6 +380,7 @@ window.THREE = THREE;
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const R = rng(11);
@@ -1083,7 +1084,7 @@ const villageLight = new THREE.PointLight(0xff5a2a, 0, 140, 1.5); villageLight.p
 // Your own .vrm models replace the built-in shapes, per role. They load from models/manifest.json
 // next to the page, or from files you pick in the Characters menu (kept in this browser only).
 const vrmProto = {};
-const VRM_BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'leftUpperArm', 'rightUpperArm', 'leftLowerArm', 'rightLowerArm', 'leftHand', 'rightHand', 'leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg'];
+const VRM_BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'leftUpperArm', 'rightUpperArm', 'leftLowerArm', 'rightLowerArm', 'leftHand', 'rightHand', 'leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot'];
 const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _qa = new THREE.Quaternion(), _v = new THREE.Vector3();
 let gltfLoader = null;
 function vrmLoader() { if (!gltfLoader) { gltfLoader = new GLTFLoader(); gltfLoader.register(p => new VRMLoaderPlugin(p)); } return gltfLoader; }
@@ -1113,6 +1114,11 @@ function analyzeVRM(vrm, height) {
     for (const s of [1, -1]) { _e.set(s * 0.8, 0, 0); _qa.setFromEuler(_e); _e.set(0, 0, best * 1.2); n.quaternion.copy(rests[up]).multiply(_qa).multiply(_q.setFromEuler(_e)); const z = handPos(up, hand).z; if (z > bz) { bz = z; bx = s; } }
     signs[side].x = bx; n.quaternion.copy(rests[up]);
   }
+  // legs bend about the body's left-right axis, written in each leg bone's own frame; and which way is forward
+  root.updateMatrixWorld(true); const legAx = {}, rq = root.getWorldQuaternion(new THREE.Quaternion());
+  for (const b of ['leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg']) { const n = node(b); if (n) legAx[b] = new THREE.Vector3(1, 0, 0).applyQuaternion(rq).applyQuaternion(n.getWorldQuaternion(new THREE.Quaternion()).invert()).normalize(); }
+  signs.leg = 1;
+  if (legAx.leftUpperLeg && node('leftLowerLeg')) { const n = node('leftUpperLeg'); let bz = -1e9; for (const sg of [1, -1]) { n.quaternion.copy(rests.leftUpperLeg).multiply(_q.setFromAxisAngle(legAx.leftUpperLeg, sg * 0.8)); root.updateMatrixWorld(true); const z = node('leftLowerLeg').getWorldPosition(new THREE.Vector3()).z; if (z > bz) { bz = z; signs.leg = sg; } } n.quaternion.copy(rests.leftUpperLeg); root.updateMatrixWorld(true); }
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3());
   // facial expressions (happy, sad, angry, surprised, blink, aa...) as morph-target binds, keyed by mesh order so clones can reuse them
@@ -1125,7 +1131,7 @@ function analyzeVRM(vrm, height) {
   } } catch (e) { }
   // stubby chibi arms hide behind a big head when raised high, so hold them out wider
   let upMax = -1.0; if (node('leftUpperArm') && node('leftHand')) { root.updateMatrixWorld(true); const al = node('leftUpperArm').getWorldPosition(new THREE.Vector3()).distanceTo(node('leftHand').getWorldPosition(new THREE.Vector3())); if (al < size.y * 0.28) upMax = -0.45; }
-  return { vrm, names, rests, signs, exprs, upMax, scale: height / Math.max(size.y, 0.01), minY: box.min.y };
+  return { vrm, names, rests, signs, legAx, exprs, upMax, scale: height / Math.max(size.y, 0.01), minY: box.min.y };
 }
 function makeVRMInstance(p, useOriginal) {
   const root = useOriginal ? p.vrm.scene : SkeletonUtils.clone(p.vrm.scene);
@@ -1137,7 +1143,7 @@ function makeVRMInstance(p, useOriginal) {
   for (const k in (p.exprs || {})) ex[k] = p.exprs[k].filter(b => meshes[b.mi] && meshes[b.mi].morphTargetInfluences).map(b => ({ mesh: meshes[b.mi], i: b.i, w: b.w }));
   let blink = ex.blink || [];
   if (!blink.length) root.traverse(o => { if (o.isMesh && o.morphTargetDictionary) for (const k in o.morphTargetDictionary) if (/(^|_)EYE_Close$|^blink$|^Blink$/i.test(k)) blink.push({ mesh: o, i: o.morphTargetDictionary[k], w: 1 }); });
-  return { wrap, root, bones, signs: p.signs, upMax: p.upMax == null ? -1.0 : p.upMax, blink, ex, mood: {}, vrm: useOriginal ? p.vrm : null, nextBlink: 1 + Math.random() * 3, blinkT: 0 };
+  return { wrap, root, bones, legAx: p.legAx || {}, signs: p.signs, upMax: p.upMax == null ? -1.0 : p.upMax, blink, ex, mood: {}, vrm: useOriginal ? p.vrm : null, nextBlink: 1 + Math.random() * 3, blinkT: 0 };
 }
 function setBone(inst, b, x, y, z, qPre) {
   const n = inst.bones[b]; if (!n) return;
@@ -1155,7 +1161,11 @@ function poseVRM(inst, p, dt) {
     _e.set(xs * (carry * 1.1 + walk * 0.35 * sg + (p.drum !== undefined ? p.drum * 2.4 - 0.3 : 0)), 0, 0); _qa.setFromEuler(_e);
     setBone(inst, up, 0, 0, zs * down, _qa);
   }
-  setBone(inst, 'leftUpperLeg', walk * 0.55, 0, 0); setBone(inst, 'rightUpperLeg', -walk * 0.55, 0, 0);
+  // sit 0..1 folds the legs into seiza: thighs forward, shins tucked back underneath
+  const sit = p.sit || 0, lg = s.leg || 1;
+  const leg = (b, a) => { const n = inst.bones[b], ax = inst.legAx && inst.legAx[b]; if (!n) return; n.node.quaternion.copy(n.rest); if (ax) n.node.quaternion.multiply(_q.setFromAxisAngle(ax, a)); else n.node.quaternion.multiply(_q.setFromEuler(_e.set(a, 0, 0))); };
+  leg('leftUpperLeg', lg * (walk * 0.55 * (1 - sit) + sit * 1.2)); leg('rightUpperLeg', lg * (-walk * 0.55 * (1 - sit) + sit * 1.2));
+  leg('leftLowerLeg', -lg * sit * 2.75); leg('rightLowerLeg', -lg * sit * 2.75);
   setBone(inst, 'head', p.headTilt || 0, 0, p.headRoll || 0);
   // blink now and then
   inst.nextBlink -= dt; if (inst.nextBlink <= 0) { inst.blinkT = 0.14; inst.nextBlink = 2.5 + Math.random() * 3.5; }
@@ -2110,7 +2120,7 @@ function giggle(s, big = 1) {
 // ---------------------------------------------------------------- HUD
 const ui = { toastT: 0, whisperT: 0 };
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); ui.toastT = 3.2; }
-function whisper(msg) { const w = $('whisper'); w.textContent = msg; w.classList.add('on'); ui.whisperT = 6; tone(196, 1.4, 'sine', 0.035); tone(207.6, 1.4, 'sine', 0.03); }
+function whisper(msg) { const w = $('whisper'); w.textContent = msg; w.classList.add('on'); ui.whisperT = Math.max(6, msg.length / 17); tone(196, 1.4, 'sine', 0.035); tone(207.6, 1.4, 'sine', 0.03); }
 function phaseName(t) { return t < 0.2 ? 'Night' : t < 0.3 ? 'Dawn' : t < 0.68 ? 'Day' : t < 0.8 ? 'Dusk' : 'Night'; }
 function refreshHUD() {
   $('r-wood').textContent = W.wood; $('r-food').textContent = W.food; $('r-coins').textContent = W.coins; $('r-treats').textContent = W.treats;
@@ -2433,7 +2443,7 @@ function doInteract(it) {
     case 'shataku': return openShataku();
     case 'lady': return talkLady();
     case 'storeDoor': if (Q.storeOpen) return; if (Q.key) return openStore(); return toast(level < 2 ? 'A storehouse with a heavy iron lock.' : 'Locked. Jiro, the storehouse keeper, has the key.');
-    case 'mirror': if (ART.mirror.got || !Q.storeOpen) return; it.obj.visible = false; return gotArt('mirror', 'My mirror. They kept it in a box, with the rice.');
+    case 'mirror': if (ART.mirror.got || !Q.storeOpen) return; it.obj.visible = false; return gotArt('mirror', 'My mirror. Mother used it the morning she got me ready for the mountain. It was the only day it was ever mine.');
     case 'hairpin': if (ART.hairpin.got) return; it.obj.visible = false; return gotArt('hairpin', 'Mother put that in my hair the morning they came.');
     case 'site':
       if (W.wood <= 0) return toast('You need wood to build. Chop a tree or ask wisplings to.');
@@ -2750,9 +2760,7 @@ function updateLady(dt) {
   L.fighting = false; L.casting = 0;
   if (L.inHouse && state === 'play') {
     placeLady(houseLady(dt), dt);
-    // asleep on her futon, head on the pillow
-    if (L.sleep) { lady.g.rotation.set(-Math.PI / 2, 0, 0); lady.g.position.set(bedL.x + 0.6, HOME.y + 0.3, bedL.z + 1.15); }
-    else lady.g.rotation.x = 0;
+    lady.g.rotation.x = 0;
     return;
   }
   if (state === 'play' && evil.active && evil.hp > 0 && L.mode !== 'thank') {
@@ -2840,10 +2848,18 @@ function placeLady(moving, dt = 1 / 60) {
   updateLadyFace(dt);
   const fp = FACE_POSE[ladyFace.cur] || FACE_POSE.calm, cast = L.casting ? 0.55 + 0.4 * Math.max(0, Math.sin(time * 6)) : L.scaring ? 0.75 * L.floatAmt : 0;
   if (L.casting) lady.arms.forEach(a => { a.piv.rotation.x = -1.3 - cast * 0.3; a.piv.rotation.z = a.s * 0.3; });
-  if (ladyVRM) poseVRM(ladyVRM, { walk: L.walkPh, walkAmt: L.walkAmt * (L.carrying ? 0.6 : 0.8), armsUp: cast, wave: !!L.casting, carry: L.carrying ? 1 : giving ? 0.8 : 0, headTilt: L.carrying ? 0.25 : (L.bow || 0) + fp[0] * (L.carrying ? 0 : 1) + (L.flinch > 0 ? -0.3 : 0), headRoll: fp[1], mood: {} }, dt);
+  L.sit = lerp(L.sit || 0, L.sitWant ? 1 : 0, 1 - Math.exp(-dt * 3)); if (L.sit < 0.003) L.sit = 0;
+  if (ladyVRM) poseVRM(ladyVRM, { walk: L.walkPh, walkAmt: L.walkAmt * (L.carrying ? 0.6 : 0.8), armsUp: cast, wave: !!L.casting, carry: L.carrying ? 1 : giving ? 0.8 : L.sit * 0.45, headTilt: L.carrying ? 0.25 : (L.bow || 0) + (L.look || 0) + fp[0] * (L.carrying ? 0 : 1) + (L.flinch > 0 ? -0.3 : 0), headRoll: fp[1], sit: L.sit, mood: {} }, dt);
+  if (ladyVRM && L.sit > 0) groundKneel(ladyVRM, lady.g, heightAt(L.pos.x, L.pos.z) + (L.sitPad || 0) * L.sit);
   if (L.flinch > 0) L.flinch -= dt;
   spinOrbs();
 }
+function groundKneel(inst, g, floorY) {
+  g.updateMatrixWorld(true); let lo = 1e9;
+  for (const b of ['leftLowerLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot']) if (inst.bones[b]) lo = Math.min(lo, inst.bones[b].node.getWorldPosition(_v3k).y);
+  if (lo < 1e8) g.position.y += floorY + 0.07 * g.scale.y - lo;
+}
+const _v3k = new THREE.Vector3();
 function spinOrbs() { lady.orbs.forEach((o, i) => { const a = time * 1.2 + i * 2.09; o.position.set(Math.cos(a) * 0.9, 1.9 + Math.sin(time * 2 + i) * 0.3, Math.sin(a) * 0.9); }); }
 
 // ---------------------------------------------------------------- evil spirits at the edge of the meadow
@@ -3504,9 +3520,10 @@ $('chapter3Btn').onclick = () => {
 };
 // in chapter three she will talk to you
 const LADY_TALK = ['My name was Rin. Nobody has said it in a hundred years. You can say it.', 'My father made bells. That is why they named me for one.', 'The rope was too tight. I sang so I would not cry. The little ones remember the song.', 'I was so angry, for so long. It is quieter now. Thank you for that.', 'When the house is done, will you leave a lantern lit for me?', 'Everyone who hurt me is long dead. Would hurting their children’s children’s children really let me rest?'];
-let ladyTalkI = 0;
+const LADY_TALK4 = ['Mother let me hold her mirror that morning. I kept tilting it to see the ribbons. I was so proud of them.', 'Before the mountain, nobody ever gave me anything. Then everyone did, all at once. I should have known what that meant.', 'For a hundred years my only visitors were boys on a dare. They threw stones at my shrine to prove they weren’t scared.', 'Some came to pray for luck. Not to me. At me, the way you throw salt at a ghost.', 'I called and called, that night. My voice gave out before the cold did.', 'Part of me wanted to be good. Part of me wanted them to hurt. I still don’t know which part is me.', 'The barrier is the last of what I saved up. I used to think I was saving it for something else.', 'Spirits don’t sleep. But sitting on a futon, in a room with a door, is very close.', 'The little ones sleep in rows, like I did with my sisters. I sit and listen to them breathe.', 'Do you think Mother looked for me, afterwards? I hope she forgot. I hope it didn’t hurt her for long.', 'Your cooking is terrible, you know. The little ones don’t mind. Neither do I.', 'Everyone who hurt me is long dead. Would hurting their children’s children’s children really let me rest?'];
+let ladyTalkI = 0, ladyTalk4I = 0;
 const ladyIt = addItem({ type: 'lady', x: 0, z: 0, pos: L.pos, reach: 1.2, obj: (() => { const o = new THREE.Object3D(); scene.add(o); o.visible = false; return o; })() });
-function talkLady() { L.wait = 4; L.target.copy(L.pos); setLadyFace(ladyTalkI % 3 === 2 ? 'shy' : 'happy', 3); whisper(LADY_TALK[ladyTalkI++ % LADY_TALK.length]); tone(784, 0.3, 'sine', 0.03); }
+function talkLady() { L.wait = 4; L.target.copy(L.pos); setLadyFace(ladyTalkI % 3 === 2 ? 'shy' : 'happy', 3); whisper(level >= 4 ? LADY_TALK4[ladyTalk4I++ % LADY_TALK4.length] : LADY_TALK[ladyTalkI++ % LADY_TALK.length]); tone(784, 0.3, 'sine', 0.03); }
 
 // ---------------------------------------------------------------- cutscene camera: keep you and her both in view
 // Tries a ring of camera spots around the two of you and keeps the one where no tree or house is in the way.
@@ -3629,13 +3646,16 @@ $('chapter4Btn').onclick = () => {
 };
 // she comes inside at sunset, serves supper at the head of the table, then goes to her room until morning
 function ladyGoInside() { if (L.carrying) ladyPutDown(); L.inHouse = true; L.task = 'serve'; L.servedTonight = false; L.emptyNoted = false; L.pos.set(IN_DOOR.x, 0, IN_DOOR.z - 0.3); L.target.copy(L.pos); L.chase = null; L.hide = null; L.fleeing = false; L.serveT = 3; L.speed = 1.4; }
-function ladyGoOutside() { L.inHouse = false; L.sleep = false; lady.g.rotation.x = 0; L.task = null; L.pos.set(OUT_STEP.x, 0, OUT_STEP.z); L.target.copy(L.pos); L.wait = 1; }
+function ladyGoOutside() { L.inHouse = false; L.sleep = false; L.sitWant = false; L.sit = 0; L.sitPad = 0; L.bow = 0; lady.g.rotation.x = 0; L.task = null; L.pos.set(OUT_STEP.x, 0, OUT_STEP.z); L.target.copy(L.pos); L.wait = 1; }
 function houseLady(dt) {
   // supper's done once nobody is waiting at the table or on the way to it
   if (L.task === 'serve' && meal.on && L.servedTonight) { const waiting = spirits.some(s => (s.state === 'atTable' && !s.ate) || s.state === 'toTable'); L.doneT = waiting ? 0 : (L.doneT || 0) + dt; }
   if (L.task === 'serve' && (!meal.on || L.doneT > 5)) { L.task = 'room'; L.doneT = 0; if (L.servedTonight) { L.suppers = (L.suppers || 0) + 1; if (L.suppers === 1) setTimeout(() => whisper('I fed them. With my own hands. Is this what it feels like, to be somebody’s mother?'), 1500); refreshHUD(); } }
-  const goal = L.task === 'serve' ? { x: table.x + 2.75, z: table.z } : { x: bedL.x + 0.6, z: bedL.z + 1.75 };
-  L.sleep = L.task === 'room' && homeRoom(L.pos.x, L.pos.z) === 'bedL' && Math.hypot(goal.x - L.pos.x, goal.z - L.pos.z) < 0.2 && (dayT > 0.8 || dayT < 0.22);
+  const goal = L.task === 'serve' ? { x: table.x + 2.75, z: table.z } : { x: bedL.x + 0.6, z: bedL.z + 0.15 };
+  // in her room she kneels on her futon; at night she bows her head and rests
+  const onBed = L.task === 'room' && homeRoom(L.pos.x, L.pos.z) === 'bedL' && Math.hypot(goal.x - L.pos.x, goal.z - L.pos.z) < 0.2;
+  L.sitWant = onBed; L.sitPad = onBed ? 0.26 : 0;
+  L.sleep = onBed && (dayT > 0.8 || dayT < 0.22); L.bow = L.sleep ? 0.3 : 0;
   const wp = homeWaypoint(L.pos.x, L.pos.z, goal.x, goal.z) || goal, dx = wp.x - L.pos.x, dz = wp.z - L.pos.z, d = Math.hypot(dx, dz);
   let moving = false;
   if (d > 0.12) { const st = Math.min(d, 1.4 * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; L.face = Math.atan2(dx, dz); moving = true; }
@@ -3672,10 +3692,10 @@ function makeEscorts() {
 // formation around her: two torches ahead, the elder and priest beside her, two behind
 const FORM = [[-0.9, 2.2], [0.9, 2.4], [-1.3, 0.2], [1.3, -0.1], [-0.8, -2.0], [0.9, -2.2]];
 const MEM_LINES = {
-  1: [[0.6, 'A hundred years ago. The night they came for me.'], [5, '“Hold still, Rin. One more pin.” Mother’s hands were shaking.'], [11, '“The mountain is angry. The rice will not grow. One daughter, for all of us.”'], [18, 'Father made the bell they rang that night. He would not look at me.'], [24, 'I told myself I was brave.']],
-  2: [[1, 'The path up the mountain. It was so quiet. Even the birds stopped.'], [9, '“Don’t look back,” the priest said. So I didn’t.'], [17, 'They had built the shrine new. Just for me.']],
+  1: [[0.6, 'A hundred years ago. The night they came for me.'], [5, 'They said I was chosen. Out of every girl in the village, me. Nobody had ever chosen me for anything.'], [11.5, '“Hold still, Rin. One more pin.” Mother’s hands were shaking.'], [17, 'She held up her mirror so I could see. It was the only day it was ever mine: the day she made me ready for the mountain.'], [24, 'New silk. Red ribbons. Sweet rice cakes, and grown-ups bowing to me. I felt like a princess.'], [30, '“The mountain is angry. The rice will not grow. One daughter, for all of us.”'], [36, 'Father made the bell they rang that night. He would not look at me.'], [41, 'I told myself I was brave.']],
+  2: [[1, 'The path up the mountain. It was so quiet. Even the birds stopped.'], [8, '“Don’t look back,” the priest said. So I didn’t.'], [15, 'Every step, the ribbons got heavier. The silk was so cold.'], [22, 'They had built the shrine new. Just for me.']],
 };
-const MEM_END = [[2, '“For the mountain. For the village. Forgive us.”'], [8, 'They tied the rope. It was too tight. I sang so I would not cry.'], [15, 'They left their torches at the bottom of the hill. Nobody came back.'], [22, 'It got so cold. And then it was quiet, for a hundred years.']];
+const MEM_END = [[2, '“For the mountain. For the village. Forgive us.”'], [8, 'They tied the rope. It was too tight. I sang so I would not cry.'], [15, 'They left their torches at the bottom of the hill. Nobody came back.'], [22, 'The pins, the silk, the bowing. It all went away so fast, once I was alone.'], [29, 'I was so afraid. I called for Mother. For Father. For anyone in the village.'], [36, 'Part of me hated them. Part of me still wanted to be good, and do my duty, so the rice would grow.'], [44, 'I died somewhere in between. I am still there.']];
 function startMemory() {
   if (state !== 'play' || !mirrorReady()) return;
   state = 'memory'; MEM.scene = 0; P.work = null; P.target = null; P.pendingIt = null; keys.clear(); if (P.holding) putDown();
@@ -3692,7 +3712,7 @@ function memoryScene(n) {
     veil().classList.add('on');
     MEM.path = [V(0, 0, 99), V(0, 0, 90), V(-3.4, 0, 84), V(-3.4, 0, 76), V(0, 0, 71), V(0, 0, 61)];
   } else MEM.path = [V(1.2, 0, 24.5), V(-2.6, 0, 19.5), V(-0.6, 0, 8), V(0, 0, 2), V(0, 0, -10.2)];
-  MEM.esc.forEach((v, i) => { v.g.visible = true; v.g.scale.setScalar(v.role === 'elder' ? 0.95 : 1); if (v.torch) v.torch.visible = true; v.leave = 0; const at0 = pathAt(MEM.path, 0), c = Math.cos(at0.dir), s_ = Math.sin(at0.dir); v.pos.set(at0.p.x + FORM[i][0] * c + FORM[i][1] * s_, 0, at0.p.z - FORM[i][0] * s_ + FORM[i][1] * c); v.face = at0.dir; });
+  MEM.dir = null; MEM.esc.forEach((v, i) => { v.vel = null; v.stepAmt = 0; v.g.visible = true; v.g.scale.setScalar(v.role === 'elder' ? 0.95 : 1); if (v.torch) v.torch.visible = true; v.leave = 0; const at0 = pathAt(MEM.path, 0), c = Math.cos(at0.dir), s_ = Math.sin(at0.dir); v.pos.set(at0.p.x + FORM[i][0] * c + FORM[i][1] * s_, 0, at0.p.z - FORM[i][0] * s_ + FORM[i][1] * c); v.face = at0.dir; });
   dayT = 0.9; P.pos.copy(MEM.path[0]); yaw = Math.atan2(-(MEM.path[1].x - MEM.path[0].x), -(MEM.path[1].z - MEM.path[0].z)); pitch = -0.05;
   $('fade').style.opacity = 0;
 }
@@ -3702,8 +3722,9 @@ function updateMemory(dt) {
   MEM.t += dt; dayT = 0.9;
   for (const [t, line] of (MEM.scene === 1 ? MEM_LINES[1] : MEM_LINES[2])) if (MEM.t >= t && !MEM.said.has(line)) { MEM.said.add(line); whisper(line); }
   const walking = MEM.scene === 1 || !MEM.arrived;
-  if (walking) MEM.s += dt * 1.25;
+  if (walking) MEM.s += dt * (MEM.scene === 1 ? 0.92 : 1.25);
   const at = pathAt(MEM.path, MEM.s);
+  MEM.dir = MEM.dir == null ? at.dir : lerpAngle(MEM.dir, at.dir, 1 - Math.exp(-dt * 1.5));
   P.pos.set(at.p.x, 0, at.p.z);
   // the procession walks with her; at the shrine they stand around her, then leave one by one
   MEM.esc.forEach((v, i) => {
@@ -3711,11 +3732,16 @@ function updateMemory(dt) {
     if (MEM.scene === 2 && MEM.arrived) {
       const a = -2.5 + i * 1.0; tx = Math.sin(a) * 2.4; tz = -10.2 + Math.cos(a) * 2.4;
       if (v.leave > 0) { tx = -0.6 + (i - 2.5) * 0.4; tz = 22; }
-    } else { const c = Math.cos(at.dir), s_ = Math.sin(at.dir); const [fx, fz] = FORM[i]; tx = at.p.x + fx * c + fz * s_; tz = at.p.z - fx * s_ + fz * c; }
-    const dx = tx - v.pos.x, dz = tz - v.pos.z, d = Math.hypot(dx, dz), mv = d > 0.08;
-    if (mv) { const st = Math.min(d, (v.leave > 0 ? 1.6 : 1.5) * dt); v.pos.x += dx / d * st; v.pos.z += dz / d * st; v.face = Math.atan2(dx, dz); }
-    else v.face = lerpAngle(v.face, Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z), 0.08);
-    v.g.position.set(v.pos.x, heightAt(v.pos.x, v.pos.z) + (mv ? Math.abs(Math.sin(time * 7 + v.ph)) * 0.04 : 0), v.pos.z); v.g.rotation.y = lerpAngle(v.g.rotation.y, v.face, 0.1);
+    } else { const c = Math.cos(MEM.dir), s_ = Math.sin(MEM.dir); const [fx, fz] = FORM[i]; tx = at.p.x + fx * c + fz * s_; tz = at.p.z - fx * s_ + fz * c; }
+    // steer with an eased velocity so they never stop-start
+    const dx = tx - v.pos.x, dz = tz - v.pos.z, d = Math.hypot(dx, dz), top = v.leave > 0 ? 1.6 : 1.9, want = Math.min(top, d * 1.6);
+    if (!v.vel) v.vel = V(0, 0, 0);
+    const k = 1 - Math.exp(-dt * 3); v.vel.x = lerp(v.vel.x, d > 0.001 ? dx / d * want : 0, k); v.vel.z = lerp(v.vel.z, d > 0.001 ? dz / d * want : 0, k);
+    v.pos.x += v.vel.x * dt; v.pos.z += v.vel.z * dt;
+    const sp = Math.hypot(v.vel.x, v.vel.z); v.stepAmt = lerp(v.stepAmt || 0, clamp(sp / 1.0, 0, 1), k); v.stepPh = (v.stepPh || v.ph || 0) + dt * sp * 5.5;
+    const faceTo = sp > 0.35 ? Math.atan2(v.vel.x, v.vel.z) : Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z);
+    v.face = lerpAngle(v.face, faceTo, 1 - Math.exp(-dt * 2.5));
+    v.g.position.set(v.pos.x, heightAt(v.pos.x, v.pos.z) + Math.abs(Math.sin(v.stepPh)) * 0.03 * v.stepAmt, v.pos.z); v.g.rotation.y = v.face;
     if (v.leave > 0) { v.leave += dt; if (v.leave > 6) v.g.visible = false; }
   });
   if (MEM.scene === 1 && at.end && !MEM.out) { MEM.out = true; $('fade').style.background = '#0d0a18'; $('fade').style.opacity = 1; setTimeout(() => { MEM.out = false; memoryScene(2); }, 1400); }
@@ -3725,7 +3751,7 @@ function updateMemory(dt) {
       MEM.endT += dt; MEM.kneel = Math.min(1, MEM.kneel + dt * 0.6);
       for (const [t, line] of MEM_END) if (MEM.endT >= t && !MEM.said.has(line)) { MEM.said.add(line); whisper(line); if (t === 8) { chime(); tone(392, 3, 'sine', 0.03, 0.5); } }
       if (MEM.endT > 12) MEM.esc.forEach((v, i) => { if (!v.leave && MEM.endT > 12 + i * 0.8) v.leave = 0.001; });
-      if (MEM.endT > 26 && !MEM.out) { MEM.out = true; $('fade').style.background = '#f4eef8'; $('fade').style.opacity = 1; setTimeout(endMemory, 1800); }
+      if (MEM.endT > 51 && !MEM.out) { MEM.out = true; $('fade').style.background = '#f4eef8'; $('fade').style.opacity = 1; setTimeout(endMemory, 1800); }
     }
   }
 }
@@ -3735,26 +3761,30 @@ function memoryCamera() {
   camera.position.set(P.pos.x, heightAt(P.pos.x, P.pos.z) + eyeH + (MEM.arrived ? 0 : Math.sin(time * 6) * 0.025), P.pos.z);
   // you can look around, but she keeps walking where they lead her
   if (MEM.scene && !MEM.arrived && !document.pointerLockElement && !drag) yaw = lerpAngle(yaw, at.dir + Math.PI, 0.02);
+  if (MEM.scene === 2 && (MEM.t >= 8 || MEM.arrived)) {
+    const ahead = MEM.arrived ? 0 : (MEM.dir == null ? at.dir : MEM.dir) + Math.PI, lim = 0.85;
+    let dy = Math.atan2(Math.sin(yaw - ahead), Math.cos(yaw - ahead)); if (Math.abs(dy) > lim) yaw = ahead + Math.sign(dy) * lim;
+  }
   camera.rotation.set(pitch, yaw, 0);
 }
 function endMemory() {
   MEM.hidden.forEach(o => o.visible = true); MEM.hidden = []; MEM.esc.forEach(v => v.g.visible = false); MEM.scene = 0; MEM.arrived = false; MEM.out = false;
   veil().classList.remove('on'); dayT = 0.72; memoryDone = true; $('fade').style.opacity = 0; setTimeout(() => { $('fade').style.background = ''; }, 900);
   // back in front of her shrine; she is standing beside it
-  P.where = 'mountain'; P.pos.set(1.0, 0, -8.6); L.inHouse = false; L.task = null; L.pos.set(-1.4, 0, -11.2); L.target.copy(L.pos); L.face = Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z); L.bow = 0; L.giving = false;
+  P.where = 'mountain'; P.pos.set(1.0, 0, -8.6); L.inHouse = false; L.task = null; L.sitWant = false; L.sit = 0; L.sitPad = 0; L.look = 0; L.sleep = false; L.pos.set(-1.4, 0, -11.2); L.target.copy(L.pos); L.face = Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z); L.bow = 0; L.giving = false;
   camPos.set(5, heightAt(5, -6) + 2.2, -5); camLook.set(0, 1.2, -10);
   state = 'ask'; endT = 0; cine.f = null; freeMouse();
 }
-const ASK_LINES = [[1, 'You saw it. You were me, for a little while.'], [6, 'The ones who tied that rope have been dead for a hundred years. The people down there now are their great-great-grandchildren. They never even knew my name.'], [14, 'If I burn them for it, does that set me free? Or does it only make me the thing that killed me?'], [21, 'Tell me, little outcast. Should I forgive them?']];
+const ASK_LINES = [[1, 'You saw it. You were me, for a little while.'], [7, 'For a hundred years, nobody came up here to be kind to me. Only boys on a dare, and people testing their luck.'], [14.5, 'To all of them I was the angry ghost of the girl the old village killed. So that is what I became.'], [22, 'I had so little power. Only enough to guard my little patch of mountain. So I saved it, year after year, to wake the mountain and burn them.'], [30, 'Then you came. You fed my little ones. You built me a room. You changed my mind.'], [37, 'The ones who tied that rope are long dead. The people down there now are their great-great-grandchildren. They never even knew my name.'], [45, 'If I burn them for it, does that set me free? Or does it only make me the thing that killed me?'], [52, 'You walked my last night with me. You know how it ended. So you choose, little outcast. Should I forgive them?']];
 function updateAsk(dt) {
   endT += dt; document.body.classList.add('cine');
   for (const [t, line] of ASK_LINES) if (endT - dt < t && endT >= t) whisper(line);
   const dx = P.pos.x - L.pos.x, dz = P.pos.z - L.pos.z, d = Math.hypot(dx, dz); let moving = false;
   if (d > 2.6) { const st = Math.min(d - 2.6, 1.2 * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; moving = true; }
-  L.face = Math.atan2(dx, dz); setLadyOpacity(1); setLadyFace(endT < 14 ? 'sad' : 'calm');
+  L.face = Math.atan2(dx, dz); setLadyOpacity(1); setLadyFace(endT < 30 ? 'sad' : endT < 37 ? 'shy' : 'calm');
   placeLady(moving, dt); syncPlayerBody(dt, L.pos);
   aimTwo(P.pos, L.pos);
-  if (endT > 24 && $('choice').hidden && state === 'ask' && !MEM.chosen) { $('choice').hidden = false; setTimeout(() => $('forgiveBtn').focus(), 30); }
+  if (endT > 59 && $('choice').hidden && state === 'ask' && !MEM.chosen) { $('choice').hidden = false; setTimeout(() => $('forgiveBtn').focus(), 30); }
 }
 // forgive: she becomes the mountain's god, and the village climbs the hill to honour her again
 const worshippers = [];
@@ -3802,7 +3832,7 @@ function updateGod(dt) {
 const wraiths = [];
 function makeWraith(x, z) {
   const g = new THREE.Group(); scene.add(g);
-  const robe = new THREE.MeshBasicMaterial({ color: 0x3a3040, transparent: true, opacity: 0.85 }), ash = new THREE.MeshBasicMaterial({ color: 0x8a7a86, transparent: true, opacity: 0.85 });
+  const robe = new THREE.MeshBasicMaterial({ color: 0x3a3040 }), ash = new THREE.MeshBasicMaterial({ color: 0x8a7a86 });
   M(new THREE.ConeGeometry(0.42, 1.9, 10, 1, true), robe, 0, 0.95, 0, g).material.side = THREE.DoubleSide;
   const h = M(new THREE.SphereGeometry(0.2, 12, 10), ash, 0, 2.0, 0, g);
   for (const s of [-1, 1]) { const e = glow(0xff3030, 0.3, 0.9); e.position.set(s * 0.07, 2.02, 0.17); g.add(e); const a = M(new THREE.CylinderGeometry(0.04, 0.03, 0.9, 5), robe, s * 0.32, 1.4, 0.2, g); a.rotation.x = -1.1; }
@@ -3819,15 +3849,23 @@ function startAftermath() {
     $('fade').style.opacity = 0; whisper('The next night.');
   }, 1600);
 }
-const AFTER_LINES = [[3, 'They came back. Not the living ones.'], [8, 'The whole village. Angry, and burning, and so cold.'], [30, 'Little outcast…?'], [35, 'Alone again. Just like before.']];
+const AFTER_LINES = [[3, 'They came back. Not the living ones.'], [8, 'The whole village. Angry, and burning, and so cold.']];
+const lastLight = { g: null, t: -1, from: V(), mid: V() };
+function makeLastLight() {
+  const g = new THREE.Group(); scene.add(g);
+  M(new THREE.SphereGeometry(0.07, 12, 10), new THREE.MeshBasicMaterial({ color: 0xfffbe8 }), 0, 0, 0, g);
+  g.add(glow(0xfff0b8, 0.75, 0.95)); g.add(glow(0xffd890, 1.6, 0.4)); return g;
+}
+function ladyFacePos() { const h = ladyVRM && ladyVRM.bones.head; if (h) { lady.g.updateMatrixWorld(true); return h.node.getWorldPosition(V()).add(V(0, 0.08, 0)); } return V(L.pos.x, lady.g.position.y + 1.6, L.pos.z); }
 function updateAftermath(dt) {
   endT += dt; document.body.classList.add('cine'); if (endT < 1.7) return;
   const t = endT - 1.7;
   for (const [tt, line] of AFTER_LINES) if (t - dt < tt && t >= tt) whisper(line);
   dayT = 0.92;
-  const alive = spirits.filter(s => !s.gone);
+  const alive = spirits.filter(s => !s.gone), everyoneGone = P.gone > 1.4;
   for (const w of wraiths) {
-    w.rise = Math.min(1, w.rise + dt * 0.5);
+    // once nobody is left but her, they sink back into the earth
+    w.rise = everyoneGone ? Math.max(0, w.rise - dt * 0.35) : Math.min(1, w.rise + dt * 0.5); w.g.visible = w.rise > 0.01;
     if (t > 4) {
       if (!w.target || w.target.gone || (w.target === 'player' && P.gone)) w.target = alive.length ? alive[Math.floor(R() * alive.length)] : (!P.gone ? 'player' : null);
       const tp = w.target === 'player' ? P.pos : w.target ? w.target.pos : L.pos, dx = tp.x - w.pos.x, dz = tp.z - w.pos.z, d = Math.hypot(dx, dz);
@@ -3849,10 +3887,39 @@ function updateAftermath(dt) {
   // she runs toward them, then falls to her knees by her shrine
   const allGone = P.gone > 1.4;
   if (!allGone && t > 6) { const dx = P.pos.x - L.pos.x, dz = P.pos.z - L.pos.z, d = Math.hypot(dx, dz); if (d > 4.5) { const st = Math.min(d - 4.5, 1.2 * dt); L.pos.x += dx / d * st; L.pos.z += dz / d * st; } L.face = Math.atan2(dx, dz); setLadyFace('sad'); placeLady(d > 4.5, dt); }
-  else { L.bow = Math.min(0.5, (L.bow || 0) + dt * 0.2); setLadyFace('sad'); placeLady(false, dt); if (allGone) lady.g.position.y -= L.bow * 0.9; }
-  if (allGone && wraiths[0].rise > 0) wraiths.forEach(w => { w.mats.forEach(m => m.opacity = Math.max(0, m.opacity - dt * 0.3)); });
+  else if (!allGone) { L.bow = Math.min(0.5, (L.bow || 0) + dt * 0.2); setLadyFace('sad'); placeLady(false, dt); }
+  else {
+    // she falls to her knees where she is
+    L.sitWant = true; L.sitPad = 0;
+    if (!lastLight.g) { lastLight.g = makeLastLight(); lastLight.t = 0; lastLight.from.copy(P.pos).setY(heightAt(P.pos.x, P.pos.z) + 1.1); lastLight.g.visible = false; }
+    const a = lastLight.t += dt, ll = lastLight.g, face = ladyFacePos(), fw = V(Math.sin(L.face), 0, Math.cos(L.face));
+    const hover = face.clone().add(fw.clone().multiplyScalar(0.55)).add(V(0, 0.05, 0));
+    const away = V(L.pos.x - 9, face.y + 9, L.pos.z - 6);
+    let look = 0.45, want = L.face;
+    if (a > 2.5) {
+      ll.visible = true;
+      if (a < 5.5) { // a little light rises from where you were and drifts to her face
+        const k = ease((a - 2.5) / 3); ll.position.lerpVectors(lastLight.from, hover, k).add(V(0, Math.sin(k * Math.PI) * 0.7, 0));
+        want = Math.atan2(ll.position.x - L.pos.x, ll.position.z - L.pos.z); look = lerp(0.45, 0.05, k);
+      } else if (a < 9.5) { // it stays a moment; she lifts her head and looks at it
+        ll.position.copy(hover).add(V(Math.sin(a * 2.1) * 0.05, Math.sin(a * 3) * 0.05, 0)); look = -0.05;
+        if (a > 5.6 && a - dt <= 5.6) { tone(880, 1.2, 'sine', 0.025); tone(1320, 1.4, 'sine', 0.015, 0.2); }
+        setLadyFace(a < 7.5 ? 'surprised' : 'sad');
+      } else if (a < 14) { // then it floats up and away, and she watches it go
+        const k = ease((a - 9.5) / 4.5); ll.position.lerpVectors(hover, away, k); ll.scale.setScalar(1 - k * 0.8);
+        want = Math.atan2(ll.position.x - L.pos.x, ll.position.z - L.pos.z);
+        look = -clamp(Math.atan2(ll.position.y - face.y, Math.hypot(ll.position.x - face.x, ll.position.z - face.z)), 0, 0.6);
+        setLadyFace('sad');
+      } else { ll.visible = false; look = lerp(L.look || 0, 0.5, 0.02); want = L.face; setLadyFace('sad'); }
+    }
+    if (a > 14.5 && a - dt <= 14.5) whisper('Little outcast…?');
+    if (a > 21.5 && a - dt <= 21.5) whisper('Alone again. Just like before.');
+    L.face = lerpAngle(L.face, want, 1 - Math.exp(-dt * 2.5)); L.look = lerp(L.look || 0, look, 1 - Math.exp(-dt * 3)); L.bow = 0;
+    if (a < 2.5 || a > 14) setLadyFace('sad');
+    placeLady(false, dt);
+    if (a > 28 && $('end').hidden) showEnd('alone');
+  }
   if (!allGone) aimTwo(P.pos, L.pos, { dist: 2.5, up: 2.6 }); else { camTargetPos = L.pos.clone().add(V(3.2, heightAt(L.pos.x, L.pos.z) + 1.8, 3.4)); camTargetLook = L.pos.clone().add(V(0, heightAt(L.pos.x, L.pos.z) + 1.0, 0)); }
-  if (t > 40 && $('end').hidden) showEnd('alone');
 }
 
 // ---------------------------------------------------------------- endings
@@ -3862,7 +3929,7 @@ function startEruption() {
   if (P.holding) putDown();
   $('prompt').classList.remove('on'); ['res', 'spirits', 'corner'].forEach(id => $(id).style.opacity = 0.0);
   whisper('I was their offering once. Now they will be mine.');
-  rumble(3); if (L.carrying) ladyPutDown(); setLadyOpacity(1); lady.g.rotation.y = 0; lady.arms.forEach(a => { a.piv.rotation.x = 0; a.piv.rotation.z = a.s * 0.9; }); lady.head.rotation.x = 0;
+  rumble(3); if (L.carrying) ladyPutDown(); L.sitWant = false; L.sit = 0; L.bow = 0; L.look = 0; L.inHouse = false; lady.g.rotation.set(0, 0, 0); setLadyOpacity(1); lady.g.rotation.y = 0; lady.arms.forEach(a => { a.piv.rotation.x = 0; a.piv.rotation.z = a.s * 0.9; }); lady.head.rotation.x = 0;
   { const f = frameTwo(P.pos, V(0, 0, -13.5), { up: 2.6, lookY: 2.6, dist: 1.5 }); camTargetPos = f.pos; camTargetLook = f.look; }
 }
 let rockT = 0, burnt = 0;
@@ -3871,7 +3938,7 @@ function updateEruption(dt) {
   const rise = clamp(endT / 3, 0, 1);
   setLadyFace('angry'); updateLadyFace(dt);
   if (ladyVRM) poseVRM(ladyVRM, { armsUp: rise * 0.7, wave: true, mood: { angry: 1 } }, dt);
-  lady.g.position.set(0, heightAt(0, -13.5) - 4 + rise * 4.6, -13.5); lady.g.scale.setScalar(1.4 + rise * 1.3);
+  lady.g.position.set(0, heightAt(0, -13.5) + rise * 0.9, -13.5); lady.g.scale.setScalar(L.scale + rise * (2.7 - L.scale));
   if (endT > 2.5 && endT < 2.6) { rumble(4); shake = 2; }
   if (endT > 2.5) { for (let k = 0; k < 14; k++) emit(PEAK.x + (R() - 0.5) * 8, PEAK.top, PEAK.z + (R() - 0.5) * 8, (R() - 0.5) * 16, 18 + R() * 22, (R() - 0.5) * 16 + 4, 4, 0); for (let k = 0; k < 6; k++) { const a = (R() - 0.5) * 2.6; emit(0, 0, 0, a, PEAK.top - 1, 6 + R() * 6, 20, 1); } }
   if (endT > 4) { camTargetPos = V(35, 20, 190); camTargetLook = V(0, -10, 0); scene.fog.far = lerp(scene.fog.far, 520, 0.05); scene.fog.near = lerp(scene.fog.near, 120, 0.05); villageLight.intensity = Math.min(3, villageLight.intensity + dt * 0.4); }
@@ -4074,6 +4141,6 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; } };
+window.__shrine = { LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
 })();
 </script>
