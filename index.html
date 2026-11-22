@@ -721,13 +721,13 @@ let stoveFire = null;
   I(new THREE.SphereGeometry(0.32, 14, 10), mat(0xfff0d0, { emissive: 0xffc080, emissiveIntensity: 0.5 }), 0.4, H - 0.75, 0).scale.set(1, 1.25, 1);
   I(B(0.02, 0.5, 0.02), beam, 0.4, H - 0.25, 0);
   homeLight.position.set(0.4, H - 1.0, 0); g.add(homeLight);
-  // rug, futon, a little shelf
+  // rug and a little shelf (your futon only appears once your bedroom is built)
   I(B(4.8, 0.02, 2.9), mat(0xe9b9a4), table.x - HOME.x, 0.012, table.z - HOME.z);
   I(B(4.4, 0.022, 2.5), mat(0xf6d6c4), table.x - HOME.x, 0.016, table.z - HOME.z);
-  const bed = new THREE.Group(); bed.position.set(hw - 1.15, 0, -hd + 1.35); g.add(bed);
+  const bed = new THREE.Group(); bed.position.set(-4.3, 0, -6.0); bed.visible = false; g.add(bed);
   I(B(1.5, 0.16, 2.2), mat(0xfff4ee), 0, 0.08, 0, bed); I(B(1.52, 0.07, 1.45), mat(0x86a3dc), 0, 0.19, 0.35, bed); I(B(0.7, 0.12, 0.36), mat(0xf7d6dc), 0, 0.22, -0.82, bed);
-  bedGroup = bed; bedIt = addItem({ type: 'bed', x: HOME.x + hw - 1.15, z: HOME.z - hd + 1.35, reach: 1.3, obj: bed });
-  bedIt.cols = [{ x: HOME.x + hw - 1.15, z: HOME.z - hd + 1.0, r: 0.6 }, { x: HOME.x + hw - 1.15, z: HOME.z - hd + 1.8, r: 0.6 }]; colliders.push(...bedIt.cols);
+  bedGroup = bed; bedIt = addItem({ type: 'bed', x: HOME.x - 4.3, z: HOME.z - 6.0, reach: 1.3, obj: bed });
+  bedIt.cols = [{ x: HOME.x - 4.3, z: HOME.z - 6.35, r: 0 }, { x: HOME.x - 4.3, z: HOME.z - 5.55, r: 0 }]; colliders.push(...bedIt.cols);
   addItem({ type: 'homeDoor', x: IN_DOOR.x, z: HOME.z + hd - 0.15, reach: 1.2, obj: doorG });
   // kitchen against the west wall: counter, clay stove with two pots, a shelf of jars
   const kg = new THREE.Group(); kg.position.set(kitchen.x - HOME.x, 0, kitchen.z - HOME.z); g.add(kg);
@@ -2023,9 +2023,8 @@ function drumLift() { const b = time * DRUM_HZ, ph = b - Math.floor(b), rest = M
 function roomDone(s) {
   if (s === bedP) {
     // your futon moves into your new room
-    bedGroup.position.set(-4.3, 0, -6.0); bedIt.x = HOME.x - 4.3; bedIt.z = HOME.z - 6.0;
-    bedIt.cols[0].x = bedIt.cols[1].x = HOME.x - 4.3; bedIt.cols[0].z = HOME.z - 6.35; bedIt.cols[1].z = HOME.z - 5.55;
-    toast('Your bedroom is finished. Your futon is in there now.'); whisper('A room with a door. You never had one either.'); return;
+    bedGroup.visible = true; bedIt.cols[0].r = bedIt.cols[1].r = 0.6;
+    toast('Your bedroom is finished. Your futon is in there, so you can sleep after dusk now.'); whisper('A room with a door. You never had one either.'); return;
   }
   if (s === bedL) { toast('Rin’s room is finished. A futon, a screen with blossoms, a stand for her mirror.'); whisper('A room for me. In a house. With a door I can open myself.'); refreshHUD(); return; }
   if (s === wisA || s === wisB) {
@@ -2279,7 +2278,7 @@ function questList() {
   const wood = n => r(`${n} more wood (you have ${W.wood})`, W.wood >= n);
   if (!cabin.built) q('Building', 'Mend your cabin', [r(`${cabin.progress} of ${cabin.need} wood added`, false), wood(cabin.need - cabin.progress)], { note: 'Tap the cabin to add wood, or set wisplings to Build.' });
   sites.filter(x => !x.done).forEach(x => q('Building', 'Spirit hut', [r(`${x.progress} of ${x.need} wood added`, false), wood(x.need - x.progress)], { note: 'Beds for two wisplings.' }));
-  const rooms = [[kitchen, 'Kitchen', 'Wisplings can cook treats here.'], [table, 'Dinner table', 'Supper every sunset.'], [bedP, 'Your bedroom', 'Your futon moves in here.'], [wisA, 'Wispling bedroom (east)', 'Six tiny beds.'], [wisB, 'Wispling bedroom (west)', 'Six tiny beds. With both, the wisplings move in.'], [bedL, 'Rin’s room', 'She moves in and serves supper in chapter four.']];
+  const rooms = [[kitchen, 'Kitchen', 'Wisplings can cook treats here.'], [table, 'Dinner table', 'Supper every sunset.'], [bedP, 'Your bedroom', 'Your futon. You can’t sleep until it’s built.'], [wisA, 'Wispling bedroom (east)', 'Six tiny beds.'], [wisB, 'Wispling bedroom (west)', 'Six tiny beds. With both, the wisplings move in.'], [bedL, 'Rin’s room', 'She moves in and serves supper in chapter four.']];
   for (const [st, name, note] of rooms) {
     if (st.done) continue;
     const locked = !cabin.built || (st === bedL && level < 3);
@@ -4459,6 +4458,6 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { get skipping() { return skipping; }, get pausedFrom() { return pausedFrom; }, binds, openShrine, snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
+window.__shrine = { get bedIt() { return bedIt; }, get skipping() { return skipping; }, get pausedFrom() { return pausedFrom; }, binds, openShrine, snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
 })();
 </script>
