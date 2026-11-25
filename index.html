@@ -82,6 +82,8 @@ button:focus-visible{outline:3px solid var(--sakura);outline-offset:2px}
 #prompt kbd{font-family:var(--ui);background:var(--ink);color:var(--paper);border-radius:6px;padding:1px 7px;font-size:12px}
 #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:50%;transform:translateX(-50%);color:var(--paper);font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.8);font-size:15px;text-align:center;width:min(480px,90vw);opacity:0;transition:opacity .3s}
 #toast.on{opacity:1}
+#altHint{bottom:calc(env(safe-area-inset-bottom,0px) + 60px);left:max(16px,env(safe-area-inset-left,0px));font-size:12.5px;color:#fff;background:rgba(20,16,36,.45);padding:4px 10px;border-radius:999px;pointer-events:none;letter-spacing:.2px}
+@media (pointer: coarse){#altHint{display:none}}
 #corner{bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:max(16px,env(safe-area-inset-left,0px));display:flex;gap:6px}
 #corner button#questBtn{width:auto;border-radius:18px;padding:0 13px;font-size:13px;letter-spacing:.03em}
 #questPanel{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 62px);z-index:12;width:min(360px,calc(100vw - 32px));max-height:min(64vh,560px);overflow:auto;padding:12px 14px}
@@ -256,6 +258,7 @@ body.cine #cineHint{display:block}
 <div class="hud" id="toast"></div>
 <button class="hud" id="jumpBtn" aria-label="Jump">Jump</button>
 <button class="hud" id="tossBtn" aria-label="Toss the wispling up">Toss</button>
+<div class="hud" id="altHint">Hold <b>Alt</b> to release the mouse and click menus</div>
 <div class="hud" id="corner"><button id="helpBtn" aria-label="How to play">?</button><button id="charBtn" aria-label="Characters" title="Characters">☺</button><button id="muteBtn" aria-label="Mute sound">♪</button><button id="questBtn" aria-label="Quests" title="Quests (J)">Quests</button></div>
 <div class="hud panel" id="questPanel" hidden><h3>Quests <button id="questClose" aria-label="Close quests">×</button></h3><div id="questBody"></div></div>
 <div id="memVeil"></div>
@@ -2215,12 +2218,13 @@ function refreshHUD() {
   const ph = $('planHut'); ph.disabled = open >= 2 || !freeSlot;
   ph.textContent = !freeSlot ? 'Every hut spot is used' : open >= 2 ? 'Finish a hut before planning more' : 'Plan a spirit hut · 6 wood';
   let g;
-  if (!offeredEver) g = 'Bring the shrine an offering before dusk. Coins or a treat will do.';
+  if (!offeredEver) g = 'Bring the shrine an offering of coins or a treat before dusk. You’ll need to do this every day. Sell wood at the peddler’s stump to earn coins.';
   else if (sitesDone() === 0) g = 'Finish the spirit hut by the path so your wispling has a bed. Tap it to add wood.';
-  else if (spirits.length < 2) g = 'Gather 3 coins and 2 treats, then call a new wispling at the shrine.';
+  else if (spirits.length < 2) g = 'Gather 3 coins and 2 treats, then call a new wispling at the shrine. Sell wood at the peddler’s stump for coins, and cook berries into treats at the campfire.';
   else if (homeless) g = 'Some wisplings have no bed. Plan another hut and set someone to Build.';
-  else g = `Wake ${Math.max(0, WIN_COUNT - spirits.length)} more wisplings and give every one a bed.`;
+  else g = `Wake ${Math.max(0, WIN_COUNT - spirits.length)} more wisplings and give every one a bed. Sell wood at the peddler’s stump for coins.`;
   if (spirits.length >= WIN_COUNT && !homeless) g = 'The mountain is full of little lights again.';
+  if (offeredEver && !tributeToday) g = 'Make today’s offering at the shrine: coins or a treat, every day before dusk. ' + g;
   $('sp-of').textContent = level === 1 ? `of ${WIN_COUNT} to wake` : 'awake';
   const qs = $('quests'); qs.hidden = level < 2; $('artChips').hidden = level < 2;
   if (level >= 4) {
@@ -2243,6 +2247,7 @@ function refreshHUD() {
     $('goal-head').textContent = st ? `Restore her shrine · step ${shrineStage + 1} of 3` : 'Her shrine is whole';
     g = st ? `${st.title}: ` + Object.entries(st.need).map(([k, n]) => k === 'wood' || k === 'coins' ? `${n} ${k}` : ART[k].name).join(', ') + '. Bring it all to the shrine.' : 'Rest now.';
     if (homeless) g += ' Some wisplings still need beds.';
+    if (!sawTown && P.where !== 'town') g = 'The village is open! Click the new signpost by the peddler’s stump to go down to the village. ' + g;
     qs.innerHTML = ''; for (const k in ART) { const li = document.createElement('li'); li.className = ART[k].got ? 'done' : ''; li.innerHTML = '<b></b> <i></i>'; li.querySelector('b').textContent = ART[k].name; li.querySelector('i').textContent = ART[k].got ? '' : '· ' + ART[k].where; qs.append(li); }
     const ac = $('artChips'); ac.innerHTML = ''; const n = Object.values(ART).filter(a => a.got).length; const c = document.createElement('div'); c.className = 'chip art'; c.textContent = `Artifacts ${n}/5`; ac.append(c);
     if (P.where === 'town') { const t = document.createElement('div'); t.className = 'chip art'; t.textContent = 'In the village'; ac.append(t); }
