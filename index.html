@@ -2545,7 +2545,7 @@ function doInteract(it) {
     case 'shop': return shopTrade();
     case 'ume': return shopTrade();
     case 'hana': return hanaTalk();
-    case 'person': { const v = it.v; v.wait = 3; v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); return toast(VLINES[(v.li++ + v.ph * 7 | 0) % VLINES.length]); }
+    case 'person': { const v = it.v; v.wait = 3; v.face = Math.atan2(P.pos.x - v.pos.x, P.pos.z - v.pos.z); const vl = forgiven ? VLINES_AFTER : VLINES; return toast(vl[(v.li++ + v.ph * 7 | 0) % vl.length]); }
     case 'npc': return talkNPC(it.v);
     case 'intruder': return toast(INTRUDER_LINES[intruder.seen % INTRUDER_LINES.length]);
     case 'shataku': return openShataku();
@@ -2707,7 +2707,7 @@ function update(dt) {
   hairpinIt.obj.visible = level >= 2 && !ART.hairpin.got && isNight(); if (hairpinIt.obj.visible) hairpinIt.gl.material.opacity = 0.6 + Math.sin(time * 4) * 0.3;
   mirrorIt.obj.visible = !ART.mirror.got;
   if (P.where === 'town' && FP_STATES.includes(state)) updateTown(dt); else staring = false;
-  $('susp').classList.toggle('on', P.where === 'town' && FP_STATES.includes(state)); $('suspFill').style.width = suspicion.toFixed(1) + '%';
+  $('susp').classList.toggle('on', P.where === 'town' && FP_STATES.includes(state) && !forgiven); $('suspFill').style.width = suspicion.toFixed(1) + '%';
   $('cross').classList.toggle('bad', staring); $('stare').style.opacity = staring ? 0.35 + suspicion / 200 : 0;
   // the sun's shadow box follows you, down in the village too
   { const fp0 = FP_STATES.includes(state) || state === 'thanks'; const tx = fp0 ? P.pos.x : 0, tz = fp0 ? P.pos.z : 0; sun.target.position.set(tx, heightAt(tx, tz), tz); sun.position.copy(sun.target.position).add(V(18, 30, 16)); sun.target.updateMatrixWorld(); }
@@ -3197,7 +3197,7 @@ function peddlerTrade() {
   ]);
 }
 function shopTrade() {
-  openTrade('Old Ume’s stall', UME_LINES[umeI++ % UME_LINES.length], [
+  openTrade('Old Ume’s stall', (forgiven ? UME_AFTER : UME_LINES)[umeI++ % (forgiven ? UME_AFTER : UME_LINES).length], [
     { label: 'Shrine bell', sub: 'Brass, a little green. “From the old mountain shrine, they say.”', cost: '−10 coins', once: true, big: true, gone: ART.bell.got, ok: () => W.coins >= 10, buy: () => { W.coins -= 10; gotArt('bell', 'My bell. They sold my bell.'); } },
     { label: 'Rice bundle', sub: 'Three days of food for a wispling.', cost: '−2 coins · +3 food', ok: () => W.coins >= 2, buy: () => { W.coins -= 2; W.food += 3; tone(880, 0.1, 'triangle', 0.04); } },
     { label: 'Sweet dango', sub: 'She likes these.', cost: '−2 coins · +1 treat', ok: () => W.coins >= 2, buy: () => { W.coins -= 2; W.treats += 1; tone(880, 0.1, 'triangle', 0.04); } },
@@ -3205,6 +3205,7 @@ function shopTrade() {
   ]);
 }
 function hanaTalk() {
+  if (forgiven) return openTrade('Hana, the girl by the well', HANA_AFTER[hanaI++ % HANA_AFTER.length] + (companion() ? '\n\nShe waves at the little one beside you. “Hello again!”' : ''), []);
   if (ART.charm.got) return openTrade('Hana, the girl by the well', (hanaI % 2 ? HANA_LINES[(hanaI++ >> 1) % HANA_LINES.length] : (hanaI++, '“Did the charm work? Grandma says it keeps the bad ones away.”')) + (companion() ? '\n\nShe stares past you and gasps. “There’s a little one with you! Hello! HELLO!”' : ''), []);
   openTrade('Hana', '“You’re the one from the mountain! Grandma says not to talk to you. Do you have sweets? I’ll trade you my charm. It’s a real one.”', [
     { label: 'Give her 2 treats', sub: 'She pulls a paper charm from her sleeve.', cost: '−2 treats', once: true, big: true, ok: () => W.treats >= 2, buy: () => { W.treats -= 2; gotArt('charm', 'A child gave you that? A child, from that village?'); closeTrade(); } },
@@ -3251,6 +3252,7 @@ const townBack = (() => {
 })();
 // villagers: wary, kind enough, and blind to what walks among them
 const villagers = [];
+const VLINES_AFTER = ['“Good morning! Come by for tea some time.”', '“You’re the one who helped the mountain god. Thank you, truly.”', '“The rice is coming in fat this year. The mountain god is kind to us.”', '“The children say there are funny little creatures in the lanes now. Harmless, I think. Cute, even.”', '“Here, take a persimmon. No, really, take it.”', '“My grandmother left offerings up there. Now we all do.”'];
 const VLINES = ['“You’re the one they sent up the mountain.”', '“Don’t track ash in here.”', '“Spirits? Just stories for children.”', '“My grandmother left offerings up there. Nobody does now.”', '“Did you hear that? Like a bell, from the mountain.”', '“Buy something or move along.”', '“The rice is late this year. The mountain is angry, they say.”'];
 const newsTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 96; const x = c.getContext('2d'); x.fillStyle = '#ffd34a'; x.strokeStyle = '#5a3a20'; x.lineWidth = 6; x.font = '900 84px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.strokeText('!', 32, 50); x.fillText('!', 32, 50); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 function makeVillager(x, z, o) {
@@ -3287,23 +3289,31 @@ const Q = { jiroAsked: false, slip: false, key: false, storeOpen: false, askedPi
 const companion = () => spirits.find(s => s.inTown) || null;
 const NPCS = {
   genzo: { name: 'Genzo', role: 'the village headman', house: 13, look: { kimono: 0x3a3560, obi: 0x9a8f80, hair: 0x6a6070, beard: true, stoop: true },
-    lines: ['“A hundred years ago the rains failed three summers running. My great-grandfather was headman then.”', '“The elders drew lots. It was a girl’s name on the stick. Rin, the bell-maker’s daughter.”', '“We tell the children she went up to marry the mountain. It is a kinder story than the true one.”', '“If you have made her shrine whole again… then perhaps this village owes you more than it owes me.”', '“Don’t look at me like that. I did not choose. I only remember.”'] },
+    after: ["“Welcome, friend. Come in out of the wind. This village owes you more than it can say.”", "“My great-grandfather drew the lots. I climbed the path and bowed to the mountain god for him. I think she heard me.”", "“We tell the children the true story now. And then we tell them how it ends: she forgave us, and she watches over us.”", "“You never have to stand at my door again. Sit, have some tea.”"],
+    lines: ['“A hundred years ago the rains failed three summers running. My great-grandfather was headman then.”', '“The elders drew lots. It was a girl’s name on the stick. That girl, the bell-maker’s daughter. We don’t say her name.”', '“We tell the children she went up to marry the mountain. It is a kinder story than the true one.”', '“If you have made her shrine whole again… then perhaps this village owes you more than it owes me.”', '“Don’t look at me like that. I did not choose. I only remember.”'] },
   sayo: { name: 'Sayo', role: 'the herb-woman', house: 6, look: { kimono: 0x8fae7a, obi: 0x4a3a30, hair: 0x2a2238, bun: true, apron: 0xf4ecd8 },
-    lines: ['“Feverfew, mugwort, a little ash from the mountain. Don’t laugh, it works.”', '“My grandmother said Rin sang to the babies while their mothers worked the fields.”', '“On still nights you can hear it from up there. Not words. Just someone humming a lullaby.”', '“Those little foxy lights on the mountain path, the children call them wisp-lings. They say they giggle.”', '“You smell like pine smoke and rice. You’re eating properly? Good.”'] },
+    after: ["“There you are! Take some mugwort tea, it’s good for mountain colds.”", "“I hum that old lullaby while I work now. On still nights the mountain god hums it back.”", "“The babies sleep so well these days. The mountain god keeps the bad dreams off, I think.”", "“You look thin. Here, a rice ball. Don’t argue with me.”"],
+    lines: ['“Feverfew, mugwort, a little ash from the mountain. Don’t laugh, it works.”', '“My grandmother said that girl sang to the babies while their mothers worked the fields.”', '“On still nights you can hear it from up there. Not words. Just someone humming a lullaby.”', '“Those little foxy lights on the mountain path, the children call them wisp-lings. They say they giggle.”', '“You smell like pine smoke and rice. You’re eating properly? Good.”'] },
   kenta: { name: 'Kenta', role: 'the woodcutter’s boy', house: 0, look: { kimono: 0x6c7fb0, obi: 0x3a3560, hair: 0x3b2a3f, band: 0xd9483b, scale: 0.88 },
+    after: ["“I took dango up for the mountain god! She waved at me! …I think she did. She definitely did.”", "“I’m not scared of the mountain anymore. Not even a little. Well. A little, at night.”", "“Can I help you chop wood sometime? I’m very strong.”", "“The little glowing ones don’t bite! They’re nice! You should have said!”"],
     lines: ['“I went up the mountain path once. On a dare. I’m not scared of anything.”', '“…There was a lady. Tall. White mask. She was walking, like a person, and then she just… rose up.”', '“Her eyes went red and the trees all leaned at me. I ran so fast I lost a sandal.”', '“Don’t tell my father. He thinks I was fishing.”', '“Do the little glowing ones bite? Asking for a friend.”'] },
   mitsu: { name: 'Mitsu', role: 'who keeps the silkworms', house: 4, look: { kimono: 0xb88aa8, obi: 0x6c5a8f, hair: 0x1d1418, tail: true },
-    lines: ['“Shh, the worms are spinning. You can hear them chewing the mulberry leaves if you listen.”', '“Silk from this valley went to the capital once. Now it’s mostly for Oharu’s loom.”', '“My shed leaks. Every winter I lose half the cocoons.”', '“Rin’s mother kept silkworms too. Some of these are their great-great-great-grandchildren, I suppose.”'] },
+    after: ["“My shed stopped leaking the week the mountain god woke. Probably a coincidence. Probably.”", "“I’m spinning a silk ribbon for the mountain god’s shrine. Will you carry it up for me?”", "“Come by any time. The silkworms like you. They wiggle when you visit.”"],
+    lines: ['“Shh, the worms are spinning. You can hear them chewing the mulberry leaves if you listen.”', '“Silk from this valley went to the capital once. Now it’s mostly for Oharu’s loom.”', '“My shed leaks. Every winter I lose half the cocoons.”', '“That girl’s mother kept silkworms too. Some of these are their great-great-great-grandchildren, I suppose.”'] },
   tokubei: { name: 'Tokubei', role: 'the old carpenter', house: 18, look: { kimono: 0x9a8f80, obi: 0x5a4a40, hair: 0xd8d0d8, hat: true, stoop: true },
+    after: ["“The village wants to build a little hall for the mountain god at the foot of the path. I’d like your hands on it.”", "“I went up and looked at that house of yours. Corners square, doors that close. Good work.”", "“A house is just a promise you make to whoever sleeps in it. You kept yours, and so did she.”"],
     lines: ['“My family built the mountain shrine. Cedar, no nails. My grandfather said you could hear it breathe.”', '“After they took the girl up, nobody would climb to mend it. Shameful. Good wood, left to rot.”', '“A house is just a promise you make to whoever sleeps in it.”', '“If you build something up there, square the corners. Spirits hate a crooked house.”'] },
   oharu: { name: 'Oharu', role: 'the weaver', house: 9, look: { kimono: 0xd9483b, obi: 0xfff8ee, hair: 0x2a2238, bun: true },
-    lines: ['“Clack, clack. A loom is a slow way to make a fast heart quiet.”', '“Rin’s mother wove the shrine rope, the one at the gate. Red thread through the straw, for luck.”', '“They say a red thread ties together the people who are meant to find each other. It stretches, but it never breaks.”', '“Spirits can’t cross a village boundary on their own. But tied to someone by red thread… well. It’s an old story.”'] },
+    after: ["“I’m weaving a new rope for the mountain god’s gate. Red thread through the straw, the way her mother did it.”", "“Bring your little ones down any time. The children want to meet them properly.”", "“A red thread ties together the people who are meant to find each other. I think it found the two of you.”"],
+    lines: ['“Clack, clack. A loom is a slow way to make a fast heart quiet.”', '“That girl’s mother wove the shrine rope, the one at the gate. Red thread through the straw, for luck.”', '“They say a red thread ties together the people who are meant to find each other. It stretches, but it never breaks.”', '“Spirits can’t cross a village boundary on their own. But tied to someone by red thread… well. It’s an old story.”'] },
   jiro: { name: 'Jiro', role: 'keeper of the storehouse', still: true, at: () => V(STORE.x - 3.4, 0, STORE.z - 2.3), look: { kimono: 0x7a6a50, obi: 0x3a3560, hair: 0x4a3a30, apron: 0x5a4a40 },
+    after: ["“I carried the last of the old shrine things back up to the mountain god. Felt right.”", "“The rice count has been right every morning since. Funny, that.”", "“The door’s always open for you now. Mind the step.”"],
     lines: ['“Everything the old shrine owned ended up in here. Boxes of it. Nobody wants it, nobody will throw it out.”', '“Rice on the bottom shelf, old shrine things on the top. The tall ones won’t go near the door. Can’t think why.”', '“I count the sacks every morning. One short, every morning. Something up there eats rice.”'] },
   fuyu: { name: 'Fuyu', role: 'keeper of the village tower', still: true, at: () => V(2.2, 0, 102.0), look: { kimono: 0xfff8ee, obi: 0xb0413e, hair: 0xe8e0ea, bun: true, stoop: true },
-    lines: ['“This tower holds no spirit. It was built to look holy, so nobody would have to climb to the real one.”', '“Rin was my grandmother’s grandmother’s little sister. In our house we still say her name at the new year.”', '“The mirror in Jiro’s storehouse was hers. A girl’s mirror, to take up the mountain with her. They took it back after.”', '“When the mountain rumbles, I ring the little bell here and say sorry. It doesn’t help. I keep doing it.”'] },
+    after: ["“I don’t ring the little bell to say sorry anymore. I ring it to say good morning to the mountain god.”", "“Our little lost girl is the mountain god now. My grandmother would have cried to hear it.”", "“Thank you for going up there when none of us would. Come and sit with an old woman sometimes.”"],
+    lines: ['“This tower holds no spirit. It was built to look holy, so nobody would have to climb to the real one.”', '“That girl was my grandmother’s grandmother’s little sister. In our house we still say her name at the new year, very quietly.”', '“The mirror in Jiro’s storehouse was hers. A girl’s mirror, to take up the mountain with her. They took it back after.”', '“When the mountain rumbles, I ring the little bell here and say sorry. It doesn’t help. I keep doing it.”'] },
 };
-function npcText(n) { n.li = n.li || 0; return n.lines[n.li++ % n.lines.length]; }
+function npcText(n) { if (forgiven && n.after) { n.ai = n.ai || 0; return n.after[n.ai++ % n.after.length]; } n.li = n.li || 0; return n.lines[n.li++ % n.lines.length]; }
 // what someone has to say about your errands, and what they can give you
 function npcQuest(k) {
   const n = NPCS[k];
@@ -3318,7 +3328,7 @@ function npcQuest(k) {
       if (level < 2 || ART.mirror.got || Q.key || Q.storeOpen) return null;
       if (Q.slip) return { text: '“Take my slip to Jiro. He’s by the storehouse, counting rice sacks.”' };
       if (!Q.jiroAsked) return { text: '“If you want something from the storehouse, ask Jiro first. Then come back to me.”' };
-      return { text: '“You want Rin’s mirror, for her shrine? …Yes. Yes, she should have it back.”', offers: [{ label: 'Take her prayer slip', sub: 'She writes on a slip of paper and stamps it with red ink.', cost: '+prayer slip', once: true, big: true, ok: () => true, buy: () => { Q.slip = true; chime(); toast('Fuyu gave you a prayer slip. Show it to Jiro at the storehouse.'); refreshHUD(); closeTrade(); } }] };
+      return { text: '“You want that girl’s mirror, for her shrine? …Yes. Yes, she should have it back.”', offers: [{ label: 'Take her prayer slip', sub: 'She writes on a slip of paper and stamps it with red ink.', cost: '+prayer slip', once: true, big: true, ok: () => true, buy: () => { Q.slip = true; chime(); toast('Fuyu gave you a prayer slip. Show it to Jiro at the storehouse.'); refreshHUD(); closeTrade(); } }] };
     case 'tokubei':
       if (level < 3) return null;
       if (Q.plans) return { text: '“Build it square. Big rooms, lots of doors. A family house wants to be walked through.”' };
@@ -3366,7 +3376,8 @@ const KIMONO = [[0x6c7fb0, 0x3a3560, 0x3b2a3f], [0xc9805a, 0x6b4a3a, 0x2a2238], 
 for (let i = 0; i < 6; i++) { const h = houses[[2, 7, 11, 15, 20, 24][i]], p = V(h.door.x, 0, h.door.z); const k = KIMONO[i % KIMONO.length]; makeVillager(p.x, p.z, { kimono: k[0], obi: k[1], hair: k[2], hat: i % 3 === 0, bun: i % 3 === 1, bundle: i % 2 ? 0xd9c08a : 0, name: 'Villager', home: p }); }
 // the stall by the gate, and the well in the plaza
 const SHOP = V(5.4, 0, 66.4), WELL = V(PLAZA.x, 0, PLAZA.z);
-const UME_LINES = ['“Outcast or not, coins are coins. Don’t stare at anything, dear. People talk.”', '“That bell came down the mountain in my grandmother’s time. Nobody would hang it. Nobody would melt it either.”', '“Rin? Hush. We don’t say that name at the stall. Bad for business.”', '“Rice is dear this year. The mountain keeps the rain to herself, they say.”'];
+const UME_AFTER = ['“For you, dear, a discount. Don’t tell the others.”', '“I send a bundle of dango up to the mountain god every week. She likes these, they say.”', '“The rain came back. The mountain god looks after us now.”', '“Look at whatever you like now, dear. Nobody minds a bit.”'];
+const UME_LINES = ['“Outcast or not, coins are coins. Don’t stare at anything, dear. People talk.”', '“That bell came down the mountain in my grandmother’s time. Nobody would hang it. Nobody would melt it either.”', '“That girl on the mountain? Hush. We don’t talk about her at the stall. Bad for business.”', '“Rice is dear this year. The mountain keeps the rain to herself, they say.”'];
 let umeI = 0;
 {
   const g = new THREE.Group(); placeY(g, SHOP.x, SHOP.z); g.rotation.y = -Math.PI / 2; scene.add(g);
@@ -3387,6 +3398,7 @@ let umeI = 0;
   colliders.push({ x: WELL.x, z: WELL.z, r: 0.95 }); townHouseCols.push({ x: WELL.x, z: WELL.z, r: 0.95 });
   makeVillager(WELL.x + 1.9, WELL.z + 1.0, { kimono: 0xd9483b, obi: 0xfff8ee, hair: 0x2a2238, buns: true, child: true, still: true, name: 'Hana', type: 'hana', mouth: 'smile' });
 }
+const HANA_AFTER = ['“I left sweets on the shrine step for the mountain god! The fox one ate one. I saw!”', '“Grandma says the mountain god is a kind lady. I knew that the whole time.”', '“There’s a lantern with a face by my house! It grinned at me! I grinned back!”', '“Can I come and visit your house on the mountain? Please please please?”'];
 const HANA_LINES = ['“Grandma says the mountain lady eats children who whistle at night. I don’t whistle.”', '“I saw a little light with fox ears on the path! It waved at me!”', '“If you bring me sweets I’ll tell you a secret. …The secret is I like sweets.”', '“Kenta says he isn’t scared of anything. He screamed at a frog yesterday.”'];
 let hanaI = 0;
 // her mirror, on the top shelf just inside the storehouse door
@@ -3402,6 +3414,20 @@ const mirrorIt = (() => {
 function openStore() {
   Q.storeOpen = true; Q.key = false; storeDoor.want = 1; storeDoor.mark.visible = false; mirrorIt.obj.visible = !ART.mirror.got;
   tone(196, 0.5, 'sawtooth', 0.02); tone(147, 0.6, 'sine', 0.04); toast('The heavy door grinds open. Something glints on the top shelf.'); refreshHUD();
+}
+let forgiven = false;
+// once she forgives them the masked ones are gone, and friendly little yokai live in the lanes instead
+const townYokai = [];
+function townYokaiOne() {
+  let p = V(0, 0, 80);
+  for (let k = 0; k < 200; k++) { const near = townYokai.length < 6, q = near ? V(lerp(-9, 9, R()), 0, lerp(73, 87, R())) : V(lerp(-28, 28, R()), 0, lerp(66, 98, R())); if (onStreet(q.x, q.z) && townFree(q.x, q.z, 1.2) && Math.hypot(q.x - WELL.x, q.z - WELL.z) > 2.5) { p = q; break; } }
+  const anchor = { x: p.x, z: p.z, obj: { rotation: { y: R() * 6.28 } }, town: true };
+  const y = makeYokai(YOKAI_KINDS[townYokai.length % 4], p.x, p.z, anchor); y.g.scale.setScalar(1.4); townYokai.push(y); return y;
+}
+function forgiveTown() {
+  forgiven = true; suspicion = 0;
+  for (const h of hollows) h.g.visible = false;
+  while (townYokai.length < 10) townYokaiOne();
 }
 // the hollow ones: tall, masked, and only you can see them
 const maskTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 160; const x = c.getContext('2d'); x.fillStyle = '#f4f0ea'; x.beginPath(); x.ellipse(64, 80, 58, 76, 0, 0, 7); x.fill(); x.strokeStyle = '#1a1420'; x.lineWidth = 5; x.lineCap = 'round'; for (const s of [-1, 1]) { x.beginPath(); x.arc(64 + s * 24, 74, 14, Math.PI * 1.15, Math.PI * 1.85); x.stroke(); } x.strokeStyle = '#b0202c'; x.lineWidth = 4; x.beginPath(); x.arc(64, 96, 24, Math.PI * 0.2, Math.PI * 0.8); x.stroke(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
@@ -3446,6 +3472,7 @@ function updateTown(dt) {
   if (state === 'play') {
     const cp = camera.position, cf = camera.getWorldDirection(V());
     for (const h of hollows) {
+      if (!h.g.visible) continue;
       // head, chest, waist and hem: staring at their body gives you away too
       let seen = false, d = 1e9;
       for (const y of [2.95, 2.2, 1.4, 0.6]) {
@@ -3738,11 +3765,11 @@ function updateYokai(dt) {
   for (const y of yokai) {
     const h = y.hut; let mv = false;
     if (y.wait > 0) y.wait -= dt;
-    else { const dx = y.to.x - y.pos.x, dz = y.to.z - y.pos.z, d = Math.hypot(dx, dz); if (d < 0.1) { y.wait = 1.5 + R() * 4; const a = h.obj.rotation.y + (R() - 0.5) * 2.4, r = 1.0 + R() * 1.2; y.to.set(h.x + Math.sin(a) * r, 0, h.z + Math.cos(a) * r); } else { const st = Math.min(d, 0.9 * dt); y.pos.x += dx / d * st; y.pos.z += dz / d * st; y.face = Math.atan2(dx, dz); mv = true; } }
+    else { const dx = y.to.x - y.pos.x, dz = y.to.z - y.pos.z, d = Math.hypot(dx, dz); if (d < 0.1) { y.wait = 1.5 + R() * 4; const a = h.obj.rotation.y + (R() - 0.5) * (h.town ? 6.28 : 2.4), r = h.town ? 0.4 + R() * 1.4 : 1.0 + R() * 1.2; y.to.set(h.x + Math.sin(a) * r, 0, h.z + Math.cos(a) * r); } else { const st = Math.min(d, 0.9 * dt); y.pos.x += dx / d * st; y.pos.z += dz / d * st; y.face = Math.atan2(dx, dz); mv = true; } }
     // umbrellas hop, lanterns float, the rest toddle
     const hop = y.kind === 'kasa' ? Math.abs(Math.sin(time * 7 + y.ph)) * (mv ? 0.25 : 0.04) : y.kind === 'chochin' ? 0.35 + Math.sin(time * 2 + y.ph) * 0.08 : mv ? Math.abs(Math.sin(time * 10 + y.ph)) * 0.05 : 0;
     y.g.position.set(y.pos.x, heightAt(y.pos.x, y.pos.z) + hop, y.pos.z);
-    if (!mv && youOnMountain() && Math.hypot(P.pos.x - y.pos.x, P.pos.z - y.pos.z) < 6) y.face = lerpAngle(y.face, Math.atan2(P.pos.x - y.pos.x, P.pos.z - y.pos.z), 0.08);
+    if (!mv && (h.town ? P.where === 'town' : youOnMountain()) && Math.hypot(P.pos.x - y.pos.x, P.pos.z - y.pos.z) < 6) y.face = lerpAngle(y.face, Math.atan2(P.pos.x - y.pos.x, P.pos.z - y.pos.z), 0.08);
     y.g.rotation.y = lerpAngle(y.g.rotation.y, y.face, 0.12); y.body.rotation.z = Math.sin(time * 3 + y.ph) * 0.08;
   }
 }
@@ -3919,7 +3946,7 @@ $('grudgeBtn').onclick = () => {
   setTimeout(() => startEruption(), 2200);
 };
 let revengeEnding = false;
-const GOD_LINES = [[0.5, 'Then I will too.'], [4, 'I will be this mountain’s keeper. Not its curse.'], [10, 'They came up the path with rice, and bells, and her name.'], [16, 'Rin. Rin of the mountain.']];
+const GOD_LINES = [[0.5, 'Then I will too.'], [4, 'I will be this mountain’s keeper. Not its curse.'], [10, 'They came up the path with rice, and bells, and her name.'], [16, 'Rin. Rin of the mountain.'], [22, 'The masked ones were only what the village was afraid of. They can rest now.'], [28, 'Something friendlier can live in the lanes.']];
 function updateGod(dt) {
   endT += dt; spinOrbs(); document.body.classList.add('cine');
   for (const [t, line] of GOD_LINES) if (t > 1 && endT - dt < t && endT >= t) whisper(line);
@@ -3946,8 +3973,21 @@ function updateGod(dt) {
   }
   if (endT > 15 && endT - dt <= 15) { [0, 0.4, 0.8].forEach(d => tone(1046, 1.2, 'sine', 0.03, d)); }
   spirits.forEach(s => { if (!s.held) { s.g.position.y = heightAt(s.pos.x, s.pos.z) + 0.12 + Math.abs(Math.sin(time * 5 + s.phase)) * 0.12; } });
-  if (endT < 8) aimTwo(P.pos, L.pos); else safeShot(V(5.5, heightAt(5.5, 5) + 4.6, 5), V(0, 1.4, -8.5), L.pos, { near: 7, up: 2.6, lookY: 1.8 });
-  if (endT > 21 && $('end').hidden) showEnd('god');
+  // down in the village: the masked ones rise into light and fade, then little yokai pop into the lanes
+  if (endT > 21) {
+    if (endT - dt <= 21) { $('fade').style.opacity = 0; for (const h of hollows) { h.goT = 22 + R() * 3.5; h.y0 = h.g.position.y; } }
+    for (const h of hollows) {
+      if (!h.g.visible || endT < h.goT) continue;
+      const k = clamp((endT - h.goT) / 1.6, 0, 1); h.g.position.y = h.y0 + k * 2.5; h.g.scale.setScalar((h.well ? 0.32 : 1) * (1 - k * 0.9));
+      if (!h.puffed) { h.puffed = true; burst(h.g.position.clone().add(V(0, 2, 0)), 0xfff2c8, 3); tone(1175 + R() * 300, 0.6, 'sine', 0.02); }
+      if (k >= 1) h.g.visible = false;
+    }
+    if (endT > 27.5 && townYokai.length < 10 && endT - 27.5 > townYokai.length * 0.35) { const y = townYokaiOne(); burst(V(y.pos.x, heightAt(y.pos.x, y.pos.z) + 0.6, y.pos.z), 0xd0c0ff, 1.5); tone(880 + townYokai.length * 60, 0.15, 'triangle', 0.025); }
+  }
+  if (endT < 8) aimTwo(P.pos, L.pos);
+  else if (endT < 21) safeShot(V(5.5, heightAt(5.5, 5) + 4.6, 5), V(0, 1.4, -8.5), L.pos, { near: 7, up: 2.6, lookY: 1.8 });
+  else { const cp = V(-3, heightAt(-3, 68) + 7.5, 68); camTargetPos = cp; camTargetLook = V(0, heightAt(0, 82) + 1.4, 82); if (endT - dt <= 21) { camPos.copy(cp); camLook.copy(camTargetLook); } }
+  if (endT > 33 && $('end').hidden) { forgiveTown(); showEnd('god'); }
 }
 // don't forgive: the mountain erupts, and the next night the village's angry dead come for everyone but her
 const wraiths = [];
@@ -4194,7 +4234,7 @@ function showEnd(won) {
   $('againBtn').focus();
 }
 $('againBtn').onclick = () => location.reload();
-$('keepBtn').onclick = () => { $('end').hidden = true; state = 'play'; worshippers.forEach(v => scene.remove(v.g)); worshippers.length = 0; if (haloGod) haloGod.material.opacity = 0; refreshHUD(); L.pos.set(0, 0, -12); L.target.set(0, 0, -12); whisper(level >= 3 ? 'Stay. I will walk with you a while longer.' : 'Stay with them. I have somewhere to be soon.'); };
+$('keepBtn').onclick = () => { $('end').hidden = true; state = 'play'; if (MEM.chosen && !revengeEnding) forgiveTown(); worshippers.forEach(v => scene.remove(v.g)); worshippers.length = 0; if (haloGod) haloGod.material.opacity = 0; refreshHUD(); L.pos.set(0, 0, -12); L.target.set(0, 0, -12); whisper(level >= 3 ? 'Stay. I will walk with you a while longer.' : 'Stay with them. I have somewhere to be soon.'); };
 let started = false;
 $('startBtn').onclick = () => {
   audioOn(); $('title').hidden = true; state = 'play'; canvas.focus();
@@ -4257,7 +4297,7 @@ $('titleLoadBtn').onclick = () => { $('title').hidden = true; pauseFromTitle = t
 function snapshot() {
   const room = r => ({ p: r.progress, d: !!r.done });
   return {
-    v: 1, savedAt: Date.now(), day, dayT, wrath, tributeToday, offeredEver, wonOnce, level, thanked, shrineStage, townBanDay, tossCount, treatsCooked, mealsServed, shatakuStage, memoryDone,
+    v: 1, savedAt: Date.now(), day, dayT, wrath, tributeToday, offeredEver, wonOnce, level, thanked, shrineStage, townBanDay, tossCount, treatsCooked, mealsServed, shatakuStage, memoryDone, forgiven,
     W: Object.assign({}, W), Q: Object.assign({}, Q), art: Object.fromEntries(Object.entries(ART).map(([k, a]) => [k, a.got])),
     axe: P.axe, suppers: L.suppers || 0,
     cabin: { p: cabin.progress, built: !!cabin.built },
@@ -4274,6 +4314,7 @@ function applySave(d) {
   try {
     day = d.day; dayT = d.dayT; wrath = d.wrath; tributeToday = d.tributeToday; offeredEver = d.offeredEver; wonOnce = !!d.wonOnce; thanked = !!d.thanked;
     townBanDay = d.townBanDay || 0; tossCount = d.tossCount || 0; treatsCooked = d.treatsCooked || 0; mealsServed = d.mealsServed || 0; memoryDone = !!d.memoryDone;
+    if (d.forgiven) forgiveTown();
     Object.assign(W, d.W); Object.assign(Q, d.Q); for (const k in d.art) if (ART[k]) ART[k].got = d.art[k];
     level = d.level;
     // wisplings: the same kinds come in the same order, so wake the same number
@@ -4285,7 +4326,7 @@ function applySave(d) {
     for (const [k, r] of [['kitchen', kitchen], ['table', table], ['bedP', bedP], ['bedL', bedL], ['wisA', wisA], ['wisB', wisB]]) { const o = d.rooms[k]; if (!o) continue; r.progress = o.p; r.done = o.d; refreshRoomSite(r); }
     for (const r of [kitchen, table, bedP, bedL, wisA, wisB]) if (r.done) roomDone(r);
     meal.on = false;
-    assignHomes(); if (wispRoomsDone() && !yokai.length) moveInYokai();
+    assignHomes(); if (wispRoomsDone()) moveInYokai();
     // chapters
     P.axe = d.axe || 1; if (P.axe > 1) tintViewAxe();
     if (level >= 2) { townSign.obj.visible = true; L.mode = level >= 3 ? 'near' : 'follow'; L.bow = 0; L.giving = false; }
@@ -4458,6 +4499,6 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // small hooks for automated checks
-window.__shrine = { get bedIt() { return bedIt; }, get skipping() { return skipping; }, get pausedFrom() { return pausedFrom; }, binds, openShrine, snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
+window.__shrine = { get forgiven() { return forgiven; }, forgiveTown, townYokai, NPCS_AFTER: () => NPCS.genzo.after, get bedIt() { return bedIt; }, get skipping() { return skipping; }, get pausedFrom() { return pausedFrom; }, binds, openShrine, snapshot, saveGame, loadGame, applySave, readSlot, openPause, closePause, showSlots, LOOK, setSex, openLook, applyPlayerLook, get playerVRM() { return playerVRM; }, intruder, spawnIntruder, shataku, get shatakuStage() { return shatakuStage; }, openShataku, buildShataku, startChapter3, companion, talkLady, NPCS, Q, houses, storeDoor, mirrorIt, talkNPC, villagersAll: villagers, evil, spawnEvil, ladyFace, setLadyFace, lady, kitchen, table, meal, SEATS, serveMeal, startMeal, assign, cabin, HOME, IN_DOOR, OUT_DOOR, get where() { return P.where; }, refreshHUD, uppiesBuf, sayUppies, playUppiesVo, get level() { return level; }, setLevel: v => level = v, startThanks, travel, tossSpirit, ART, STAGES, get shrineStage() { return shrineStage; }, get suspicion() { return suspicion; }, hollows, villagers, TOWN_GATE, SHOP, WELL, MIRROR_AT, townSign, get time() { return time; }, setPitch: v => pitch = v, act, doInteract, catchSpirit, pickUp, get staring() { return staring; }, vrmProto, setRoleModel, get yaw(){return yaw}, setYaw: v => yaw = v, L, addProgress, P, scene, get wrath(){return wrath}, get dayT(){return dayT}, W, spirits, setWrath: v => wrath = v, get state() { return state; }, setDayT: v => dayT = v, sites, spawnSpirit, assignHomes, makeHutSite, bedP, bedL, wisA, wisB, BEDROOMS, logs, yokai, barrier, startChapter4, startMemory, MEM, mirrorReady, setMemoryDone: v => memoryDone = v, wraiths, worshippers, questList, toggleQuests, trees, crewAt, homeWalkable, homeRoom, ladyGoInside, frameTwo, get camTargetPos() { return camTargetPos; }, roomDone, moveInYokai, get revengeEnding() { return revengeEnding; }, endMemory, memoryScene, startAftermath, get endT() { return endT; }, get ladyVRM() { return ladyVRM; }, lastLight };
 })();
 </script>
